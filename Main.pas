@@ -9,20 +9,21 @@ uses
   IdComponent, IdTCPConnection, IdTCPClient, IdHTTP, MSHTML, cxGraphics,
   cxControls, cxLookAndFeels, cxLookAndFeelPainters, cxContainer, cxEdit,
   dxSkinsCore, dxSkinsDefaultPainters, cxTextEdit, cxMemo, IdIOHandler,
-  IdIOHandlerSocket, IdIOHandlerStack, IdSSL, IdSSLOpenSSL;
+  IdIOHandlerSocket, IdIOHandlerStack, IdSSL, IdSSLOpenSSL, Vcl.ExtCtrls,
+  GridFrame, CategoryInfoDataSet, ProductListInfoDataSet;
 
 type
   TMainForm = class(TForm)
     Button1: TButton;
-    IdHTTP1: TIdHTTP;
-    Button2: TButton;
-    cxMemo1: TcxMemo;
-    IdSSLIOHandlerSocketOpenSSL1: TIdSSLIOHandlerSocketOpenSSL;
+    Panel1: TPanel;
+    Panel2: TPanel;
+    procedure FormCreate(Sender: TObject);
     procedure Button1Click(Sender: TObject);
-    procedure Button2Click(Sender: TObject);
   private
-    procedure AddToMemo(AElement: IHTMLElement);
-    procedure Process(IElement: IHTMLElement);
+    FCategoryInfoDS: TCategoryInfoDS;
+    FProductListInfoDS: TProductListInfoDS;
+    FViewCategory: TfrmGrid;
+    FViewProductList: TfrmGrid;
     { Private declarations }
   public
     { Public declarations }
@@ -34,84 +35,80 @@ var
 implementation
 
 uses
-  Winapi.ActiveX;
+  CategoryParser, WebLoader, FireDAC.Comp.Client, ProductListParser;
 
 {$R *.dfm}
 
-var
-  idoc: IHTMLDocument2;
-
-procedure TMainForm.AddToMemo(AElement: IHTMLElement);
+procedure TMainForm.FormCreate(Sender: TObject);
 begin
-  cxMemo1.Lines.Add(Format('tag=%s class=%s', [AElement.tagName,
-    AElement._className]));
+  FViewCategory := TfrmGrid.Create(Self);
+  FViewCategory.Name := 'ViewCategory1';
+  FViewCategory.Place(Panel1);
+
+  FViewProductList := TfrmGrid.Create(Self);
+  FViewProductList.Name := 'ViewProductList1';
+  FViewProductList.Place(Panel2);
+
+  FCategoryInfoDS := TCategoryInfoDS.Create(Self);
+  FViewCategory.DSWrap := FCategoryInfoDS.W;
+
+  FProductListInfoDS := TProductListInfoDS.Create(Self);
+  FViewProductList.DSWrap := FProductListInfoDS.W;
 end;
 
 procedure TMainForm.Button1Click(Sender: TObject);
 var
-  html: string;
-  v: Variant;
+  AProductListParser: TProductListParser;
+  AURL: string;
+  ACategoryParser: TCategoryParser;
+  WW: TCategoryInfoW;
 begin
-  // Сначала просто загружаем в html как строку
-  IdHTTP1.HandleRedirects := true;
-  html := IdHTTP1.Get('https://b2b.harting.com/ebusiness/ru/ru/13991');
+  AURL := 'https://b2b.harting.com/ebusiness/ru/ru/13991';
 
-  // Создаем вариантный массив
-  v := VarArrayCreate([0, 0], VarVariant);
-  v[0] := html; // присваиваем 0 элементу массива строку с html
+  ACategoryParser := TCategoryParser.Create(Self, TWebDM.Instance);
+  try
+    ACategoryParser.Parse(AURL, FCategoryInfoDS, 0);
 
-  // Создаем интерфейс
-  { Можно загружать через CreateComObject либо через coHTMLDocument.Create }
-  // iDoc:=CreateComObject(Class_HTMLDOcument) as IHTMLDocument2;
-  idoc := coHTMLDocument.Create as IHTMLDocument2;
-
-  // пишем в интерфейс
-  idoc.write(PSafeArray(System.TVarData(v).VArray));
-  { все, теперь страницу можно обрабатывать при помощи MSHTML }
-end;
-
-procedure TMainForm.Button2Click(Sender: TObject);
-var
-  i: integer;
-  s: string;
-  idisp: IDispatch;
-  IElement: IHTMLElement;
-begin
-
-  cxMemo1.Lines.Clear;
-  for i := 0 to idoc.all.length - 1 do
-  begin
-    IElement := idoc.all.item(i, 0) as IHTMLElement;
-
-    if not assigned(IElement) then
-      Continue;
-
-    if IElement.tagName = 'DIV' then
-    begin
-      if IElement._className = 'off-grid' then
+    WW := TCategoryInfoW.Create(FCategoryInfoDS.W.AddClone(''));
+    try
+      WW.FilterByParentID(0);
+      WW.DataSet.First;
+      while not WW.DataSet.Eof do
       begin
-        AddToMemo(IElement);
-        Process(IElement);
+        ACategoryParser.Parse(WW.HREF.F.AsString, FCategoryInfoDS,
+          WW.ID.F.AsInteger);
+        WW.DataSet.Next;
       end;
+    finally
+      FCategoryInfoDS.W.DropClone(WW.DataSet as TFDMemTable);
     end;
-
+  finally
+    FreeAndNil(ACategoryParser);
   end;
 
-end;
-
-procedure TMainForm.Process(IElement: IHTMLElement);
-var
-  AChild: IHTMLElement;
-  i: integer;
-  AСhildCollection: IHTMLElementCollection;
-begin
-  AСhildCollection := IElement.all as IHTMLElementCollection;
-
-  for i := 0 to AСhildCollection.length - 1 do
-  begin
-    AChild := AСhildCollection.item(i, 0) as IHTMLElement;
-    AddToMemo(AChild);
+  AProductListParser := TProductListParser.Create(Self, TWebDM.Instance);
+  try
+    WW := TCategoryInfoW.Create(FCategoryInfoDS.W.AddClone(''));
+    try
+      WW.FilterByParentID(1);
+      WW.DataSet.First;
+      // while not WW.DataSet.Eof do
+      // begin
+      AProductListParser.Parse(WW.HREF.F.AsString, FProductListInfoDS,
+        WW.ID.F.AsInteger);
+      // WW.DataSet.Next;
+      // end;
+    finally
+      FCategoryInfoDS.W.DropClone(WW.DataSet as TFDMemTable);
+    end;
+  finally
+    FreeAndNil(AProductListParser);
   end;
+
+  FCategoryInfoDS.First;
+  FProductListInfoDS.First;
+  FViewCategory.MyApplyBestFit;
+  FViewProductList.MyApplyBestFit;
 end;
 
 end.
