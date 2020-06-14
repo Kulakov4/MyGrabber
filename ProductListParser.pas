@@ -3,33 +3,31 @@ unit ProductListParser;
 interface
 
 uses
-  HTMLPageParser, FireDAC.Comp.Client, MSHTML;
+  FireDAC.Comp.Client, MSHTML, MyHTMLLoader, ProductListInfoDataSet,
+  System.Classes;
 
 type
-  TProductListParser = class(THTMLPageParser)
+  TProductListParser = class(TComponent)
   public
-    procedure Process(AHTMLDocument: IHTMLDocument2; AFDMemTable: TFDMemTable);
-        override;
+    procedure Parse(AMyHTMLRec: TMyHTMLRec; AProductListInfoDS: TProductListInfoDS;
+        AParentID: Integer);
   end;
 
 implementation
 
 uses
-  ProductListInfoDataSet, MyHTMLParser;
+  MyHTMLParser, URLHelper;
 
-procedure TProductListParser.Process(AHTMLDocument: IHTMLDocument2;
-    AFDMemTable: TFDMemTable);
+procedure TProductListParser.Parse(AMyHTMLRec: TMyHTMLRec; AProductListInfoDS:
+    TProductListInfoDS; AParentID: Integer);
 var
   A: TArray<IHTMLElement>;
   AHTMLAnchorElement: IHTMLAnchorElement;
   AHTMLElement: IHTMLElement;
   B: TArray<IHTMLElement>;
   C: TArray<IHTMLElement>;
-  DS: TProductListInfoDS;
 begin
-  DS := AFDMemTable as TProductListInfoDS;
-
-  A := TMyHTMLParser.Parse(AHTMLDocument.all, 'DIV', 'row subcategory-list-row', 1);
+  A := TMyHTMLParser.Parse(AMyHTMLRec.HTMLDocument.all, 'DIV', 'row subcategory-list-row', 1);
 
   A := TMyHTMLParser.Parse(A[0].all as IHTMLElementCollection, 'DIV',
     'product-teaser__text-container');
@@ -44,12 +42,12 @@ begin
     C := TMyHTMLParser.Parse(AHTMLElement.all as IHTMLElementCollection, 'SPAN',
       'product-teaser__info', 1);
 
-    DS.W.TryAppend;
-    DS.W.ParentID.F.AsInteger := ParentID;
-    DS.W.HREF.F.Value := GetAbsoluteURL(AHTMLAnchorElement.HREF);
-    DS.W.Caption.F.Value := B[0].innerText;
-    DS.W.ItemNumber.F.Value := C[0].innerText;
-    DS.W.TryPost;
+    AProductListInfoDS.W.TryAppend;
+    AProductListInfoDS.W.ParentID.F.AsInteger := AParentID;
+    AProductListInfoDS.W.HREF.F.Value := TURLHelper.GetAbsoluteURL(AMyHTMLRec.URL, AHTMLAnchorElement.HREF);
+    AProductListInfoDS.W.Caption.F.Value := B[0].innerText;
+    AProductListInfoDS.W.ItemNumber.F.Value := C[0].innerText;
+    AProductListInfoDS.W.TryPost;
   end;
 end;
 

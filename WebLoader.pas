@@ -49,6 +49,7 @@ end;
 
 function TWebDM.Load(const AURL: WideString): WideString;
 begin
+  Assert(AURL <> '');
   IdHTTP.HandleRedirects := true;
   // Загружаем в html как Unicode строку
   Result := IdHTTP.Get(AURL);

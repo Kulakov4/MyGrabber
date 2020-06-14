@@ -23,6 +23,7 @@ class function TMyHTMLParser.Parse(AHTMLElementCollection
   : IHTMLElementCollection; const ATagName, AClassName: String;
   TestResult: Integer = 0): TArray<IHTMLElement>;
 var
+  AElementClassName: string;
   AHTMLElement: IHTMLElement;
   i: Integer;
   L: TList<IHTMLElement>;
@@ -36,9 +37,14 @@ begin
     begin
       AHTMLElement := AHTMLElementCollection.item(i, 0) as IHTMLElement;
       Assert(AHTMLElement <> nil);
+      AElementClassName := AHTMLElement._className;
+      AElementClassName := AElementClassName.Trim;
+
+//      if AElementClassName.StartsWith('pagination-light__controls') then
+//        beep;
 
       if (AHTMLElement.tagName = ATagName) and
-        (AHTMLElement._className = AClassName) then
+        (AElementClassName = AClassName) then
       begin
         L.Add(AHTMLElement);
       end;

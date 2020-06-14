@@ -368,11 +368,11 @@ end;
 
 procedure TfrmGrid.ApplySort(Sender: TcxGridTableView; AColumn: TcxGridColumn);
 var
-  AFieldSort: TFieldSort;
-  AInvertedSortOrder: TdxSortOrder;
-  ASortVariant: TSortVariant;
-  ACol: TcxGridDBBandedColumn;
+  AColSortOrder: TdxSortOrder;
   ASortOrder: TdxSortOrder;
+  ASortVariant: TSortVariant;
+  Col: TcxGridDBBandedColumn;
+  S: string;
 begin
   inherited;
 
@@ -382,12 +382,10 @@ begin
   if ASortVariant = nil then
     Exit;
 
-  ASortOrder := soAscending;
-
   if (AColumn.SortOrder = soAscending) then
-    AInvertedSortOrder := soDescending
+    ASortOrder := soDescending
   else
-    AInvertedSortOrder := soAscending;
+    ASortOrder := soAscending;
 
   Sender.BeginSortingUpdate;
   try
@@ -395,31 +393,20 @@ begin
     ClearSort(Sender);
 
     // Применяем сортировку
-    for AFieldSort in ASortVariant.SortedFields do
+    for S in ASortVariant.SortedFieldNames do
     begin
-      ACol := (Sender as TcxGridDBBandedTableView).GetColumnByFieldName
-        (AFieldSort.FieldName);
-      Assert(ACol <> nil);
+      Col := (Sender as TcxGridDBBandedTableView).GetColumnByFieldName(S);
+      Assert(Col <> nil);
+      AColSortOrder := ASortOrder;
 
-      // Определяемся, как изменится сортировка по этому полю
-      case AFieldSort.SortOrder of
-        // Нужно инвертировать сортировку по этой колонке
-        msoInvert:
-          ASortOrder := AInvertedSortOrder;
-        // Нужно сортировать по возрастанию
-        msoAscending:
-          ASortOrder := soAscending;
-        // Нужно сортировать по убыванию
-        msoDescending:
-          ASortOrder := soDescending;
-      end;
-
-      // Меняем сортировку по этому полю
-      ACol.SortOrder := ASortOrder;
+      // Применяем сортировку
+      Col.SortOrder := AColSortOrder;
     end;
+
   finally
     Sender.EndSortingUpdate;
   end;
+
 end;
 
 procedure TfrmGrid.BeginUpdate;

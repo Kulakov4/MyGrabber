@@ -6,7 +6,6 @@ uses
   MyHTMLParser in 'MyHTMLParser.pas',
   WebLoaderInterface in 'WebLoaderInterface.pas',
   WebLoader in 'WebLoader.pas' {WebDM: TDataModule},
-  HTMLPageParser in 'HTMLPageParser.pas',
   CategoryParser in 'CategoryParser.pas',
   CategoryInfoDataSet in 'CategoryInfoDataSet.pas',
   DSWrap in 'DSWrap.pas',
@@ -14,7 +13,13 @@ uses
   DragHelper in 'DragHelper.pas',
   ParserDataSet in 'ParserDataSet.pas',
   ProductListParser in 'ProductListParser.pas',
-  ProductListInfoDataSet in 'ProductListInfoDataSet.pas';
+  ProductListInfoDataSet in 'ProductListInfoDataSet.pas',
+  MyHTMLLoader in 'MyHTMLLoader.pas',
+  URLHelper in 'URLHelper.pas',
+  GridSort in 'GridSort.pas',
+  NotifyEvents in 'NotifyEvents.pas',
+  DBRecordHolder in 'DBRecordHolder.pas',
+  PageParser in 'PageParser.pas';
 
 {$R *.res}
 

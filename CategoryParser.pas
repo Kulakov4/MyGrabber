@@ -3,34 +3,31 @@ unit CategoryParser;
 interface
 
 uses
-  HTMLPageParser, MSHTML, System.Generics.Collections, CategoryInfoDataSet,
-  FireDAC.Comp.Client, System.Classes, WebLoaderInterface;
+  MSHTML, System.Generics.Collections, CategoryInfoDataSet,
+  FireDAC.Comp.Client, System.Classes, WebLoaderInterface, MyHTMLLoader;
 
 type
-  TCategoryParser = class(THTMLPageParser)
+  TCategoryParser = class(TComponent)
   private
   public
-    procedure Process(AHTMLDocument: IHTMLDocument2; AFDMemTable: TFDMemTable);
-        override;
+    procedure Parse(AMyHTMLRec: TMyHTMLRec; ACategoryInfoDS: TCategoryInfoDS;
+        AParentID: Integer);
   end;
 
 implementation
 
 uses
-  MyHTMLParser, System.SysUtils;
+  MyHTMLParser, System.SysUtils, URLHelper;
 
-procedure TCategoryParser.Process(AHTMLDocument: IHTMLDocument2; AFDMemTable:
-    TFDMemTable);
+procedure TCategoryParser.Parse(AMyHTMLRec: TMyHTMLRec; ACategoryInfoDS:
+    TCategoryInfoDS; AParentID: Integer);
 var
   A: TArray<IHTMLElement>;
   AHTMLElement: IHTMLElement;
   AIHTMLAnchorElement: IHTMLAnchorElement;
   B: TArray<IHTMLElement>;
-  DS: TCategoryInfoDS;
 begin
-  DS := AFDMemTable as TCategoryInfoDS;
-
-  A := TMyHTMLParser.Parse(AHTMLDocument.all, 'DIV', 'off-grid', 1);
+  A := TMyHTMLParser.Parse(AMyHTMLRec.HTMLDocument.all, 'DIV', 'off-grid', 1);
 
   A := TMyHTMLParser.Parse(A[0].all as IHTMLElementCollection, 'A',
     'category-teaser off-grid__item');
@@ -41,11 +38,12 @@ begin
 
     AIHTMLAnchorElement := AHTMLElement as IHTMLAnchorElement;
 
-    DS.W.TryAppend;
-    DS.W.ParentID.F.AsInteger := ParentID;
-    DS.W.HREF.F.Value := GetAbsoluteURL(AIHTMLAnchorElement.HREF);
-    DS.W.Caption.F.Value := B[0].innerText;
-    DS.W.TryPost;
+    ACategoryInfoDS.W.TryAppend;
+    ACategoryInfoDS.W.ParentID.F.AsInteger := AParentID;
+    ACategoryInfoDS.W.HREF.F.Value := TURLHelper.GetAbsoluteURL(AMyHTMLRec.URL,
+      AIHTMLAnchorElement.HREF);
+    ACategoryInfoDS.W.Caption.F.Value := B[0].innerText;
+    ACategoryInfoDS.W.TryPost;
   end;
 end;
 
