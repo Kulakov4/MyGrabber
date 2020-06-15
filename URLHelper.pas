@@ -21,39 +21,32 @@ var
   i: Integer;
   S: string;
   URI: TIdURI;
+  URI2: TIdURI;
 begin
+  S := href;
+
+  if S.StartsWith('about:') then
+    S := S.Substring(6);
+  if S.StartsWith('blank') then
+    S := S.Substring(5);
+
   URI := TIdURI.Create(AURL);
+  URI2 := TIdURI.Create(S);
   try
-    // Protocol = URI.Protocol
-    // Username = URI.Username
-    // Password = URI.Password
-    // Host = URI.Host
-    // Port = URI.Port
-    // Path = URI.Path
-    // Query = URI.Params
+    if not URI2.Path.IsEmpty then
+      URI.Path := URI2.Path;
 
-    if href.StartsWith('about:blank?') then
-    begin
-      URI.Params := href.Replace('about:blank?', '');
-    end;
-    if href.StartsWith('about:/') then
-    begin
-       URI.Path
-    end
+    if not URI2.Document.IsEmpty then
+      URI.Document := URI2.Document;
 
+    if not URI2.Params.IsEmpty then
+      URI.Params := URI2.Params;
+
+    Result := URI.URI;
   finally
-    URI.Free;
+    FreeAndNil(URI);
+    FreeAndNil(URI2);
   end;
-
-else
-begin
-  i := AURL.LastDelimiter('/');
-  Assert(i > 0);
-  S := AURL.Substring(0, i + 1);
-
-  Assert(href.IndexOf('about:') = 0);
-  Result := href.Replace('about:', S);
-end;
 end;
 
 end.
