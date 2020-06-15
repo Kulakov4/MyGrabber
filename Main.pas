@@ -34,6 +34,7 @@ type
     FProductListParser: TProductListParser;
     FViewCategory: TfrmGrid;
     FViewProductList: TfrmGrid;
+    procedure DoOnRootCategoryParseComplete(Sender: TObject);
     function GetCategoryParser: TCategoryParser;
     function GetPageParser: TPageParser;
     function GetProductListParser: TProductListParser;
@@ -54,13 +55,18 @@ implementation
 
 uses
   WebLoader, FireDAC.Comp.Client,
-  MyHTMLLoader;
+  MyHTMLLoader, ParserManager, NotifyEvents;
 
 {$R *.dfm}
 
 procedure TMainForm.actStartGrabExecute(Sender: TObject);
 begin
   StartGrab;
+end;
+
+procedure TMainForm.DoOnRootCategoryParseComplete(Sender: TObject);
+begin
+  ShowMessage('OK');
 end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
@@ -103,39 +109,49 @@ begin
 end;
 
 procedure TMainForm.StartGrab;
-var
+{
+  var
   AURL: string;
   AMyHTMLRec: TMyHTMLRec;
   NextPageAvailable: Boolean;
   WW: TCategoryInfoW;
+}
+var
+  PM: TParserManager;
 begin
-  AURL := 'https://b2b.harting.com/ebusiness/ru/ru/13991';
+  PM := TParserManager.Create(Self,
+    ['https://b2b.harting.com/ebusiness/ru/ru/13991'], CategoryParser, nil,
+    FCategoryInfoDS.W, 0);
+  TNotifyEventWrap.Create(PM.OnParseComplete, DoOnRootCategoryParseComplete);
 
-  // Загружаем страницу и формируем HTML документ
-  AMyHTMLRec := TMyHTMLLoader.Load(AURL, TWebDM.Instance);
+  {
+    AURL := 'https://b2b.harting.com/ebusiness/ru/ru/13991';
 
-  // парсим наш HTML докумет на наличие категорйи
-  CategoryParser.Parse(AMyHTMLRec, FCategoryInfoDS, 0);
+    // Загружаем страницу и формируем HTML документ
+    AMyHTMLRec := TMyHTMLLoader.Load(AURL, TWebDM.Instance);
 
-  WW := TCategoryInfoW.Create(FCategoryInfoDS.W.AddClone(''));
-  try
+    // парсим наш HTML докумет на наличие категорйи
+    CategoryParser.Parse(AMyHTMLRec, FCategoryInfoDS, 0);
+
+    WW := TCategoryInfoW.Create(FCategoryInfoDS.W.AddClone(''));
+    try
     WW.FilterByParentID(0);
     WW.DataSet.First;
     while not WW.DataSet.Eof do
     begin
-      // Загружаем страницу и формируем HTML документ
-      AMyHTMLRec := TMyHTMLLoader.Load(WW.HREF.F.AsString, TWebDM.Instance);
+    // Загружаем страницу и формируем HTML документ
+    AMyHTMLRec := TMyHTMLLoader.Load(WW.HREF.F.AsString, TWebDM.Instance);
 
-      // Парсим дочерние HTML документы на наличие подкатегорий
-      CategoryParser.Parse(AMyHTMLRec, FCategoryInfoDS, WW.ID.F.AsInteger);
-      WW.DataSet.Next;
+    // Парсим дочерние HTML документы на наличие подкатегорий
+    CategoryParser.Parse(AMyHTMLRec, FCategoryInfoDS, WW.ID.F.AsInteger);
+    WW.DataSet.Next;
     end;
-  finally
+    finally
     FCategoryInfoDS.W.DropClone(WW.DataSet as TFDMemTable);
-  end;
+    end;
 
-  WW := TCategoryInfoW.Create(FCategoryInfoDS.W.AddClone(''));
-  try
+    WW := TCategoryInfoW.Create(FCategoryInfoDS.W.AddClone(''));
+    try
     WW.FilterByParentID(1);
     WW.DataSet.First;
     // while not WW.DataSet.Eof do
@@ -144,25 +160,26 @@ begin
     // Цикл по всем страницам
     AURL := WW.HREF.F.AsString;
     repeat
-      // Загружаем страницу и формируем HTML документ
-      AMyHTMLRec := TMyHTMLLoader.Load(AURL, TWebDM.Instance);
+    // Загружаем страницу и формируем HTML документ
+    AMyHTMLRec := TMyHTMLLoader.Load(AURL, TWebDM.Instance);
 
-      // Парсим эту страницу на наличие списка товаров
-      ProductListParser.Parse(AMyHTMLRec, FProductListInfoDS,
-        WW.ID.F.AsInteger);
+    // Парсим эту страницу на наличие списка товаров
+    ProductListParser.Parse(AMyHTMLRec, FProductListInfoDS,
+    WW.ID.F.AsInteger);
 
-      // Парсим эту страницу на наличие ссылки на следующую страницу
-      NextPageAvailable := PageParser.Parse(AMyHTMLRec, AURL);
+    // Парсим эту страницу на наличие ссылки на следующую страницу
+    NextPageAvailable := PageParser.Parse(AMyHTMLRec, AURL);
     until not NextPageAvailable
     // WW.DataSet.Next;
     // end;
-      finally FCategoryInfoDS.W.DropClone(WW.DataSet as TFDMemTable);
-  end;
+    finally FCategoryInfoDS.W.DropClone(WW.DataSet as TFDMemTable);
+    end;
 
-  FCategoryInfoDS.First;
-  FProductListInfoDS.First;
-  FViewCategory.MyApplyBestFit;
-  FViewProductList.MyApplyBestFit;
+    FCategoryInfoDS.First;
+    FProductListInfoDS.First;
+    FViewCategory.MyApplyBestFit;
+    FViewProductList.MyApplyBestFit;
+  }
 end;
 
 end.

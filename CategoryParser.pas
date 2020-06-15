@@ -3,15 +3,20 @@ unit CategoryParser;
 interface
 
 uses
-  MSHTML, System.Generics.Collections, CategoryInfoDataSet,
-  FireDAC.Comp.Client, System.Classes, WebLoaderInterface, MyHTMLLoader;
+  MSHTML, System.Generics.Collections, CategoryInfoDataSet, FireDAC.Comp.Client,
+  System.Classes, WebLoaderInterface, DSWrap,
+  ParserInterface;
 
 type
-  TCategoryParser = class(TComponent)
+  TCategoryParser = class(TComponent, IParser)
   private
+    FCategoryInfoDS: TCategoryInfoDS;
+    function GetW: TDSWrap;
   public
-    procedure Parse(AMyHTMLRec: TMyHTMLRec; ACategoryInfoDS: TCategoryInfoDS;
-        AParentID: Integer);
+    constructor Create(AOwner: TComponent); override;
+    procedure Parse(AURL: string; AHTMLDocument: IHTMLDocument2;
+      AParentID: Integer);
+    property W: TDSWrap read GetW;
   end;
 
 implementation
@@ -19,15 +24,32 @@ implementation
 uses
   MyHTMLParser, System.SysUtils, URLHelper;
 
-procedure TCategoryParser.Parse(AMyHTMLRec: TMyHTMLRec; ACategoryInfoDS:
-    TCategoryInfoDS; AParentID: Integer);
+constructor TCategoryParser.Create(AOwner: TComponent);
+begin
+  inherited;
+  FCategoryInfoDS := TCategoryInfoDS.Create(Self);
+end;
+
+function TCategoryParser.GetW: TDSWrap;
+begin
+  Result := FCategoryInfoDS.W;
+end;
+
+procedure TCategoryParser.Parse(AURL: string; AHTMLDocument: IHTMLDocument2;
+  AParentID: Integer);
 var
   A: TArray<IHTMLElement>;
   AHTMLElement: IHTMLElement;
   AIHTMLAnchorElement: IHTMLAnchorElement;
   B: TArray<IHTMLElement>;
+  ih: WideString;
+  it: WideString;
 begin
-  A := TMyHTMLParser.Parse(AMyHTMLRec.HTMLDocument.all, 'DIV', 'off-grid', 1);
+  Assert(AHTMLDocument <> nil);
+  Assert(not AURL.IsEmpty);
+
+  FCategoryInfoDS.EmptyDataSet;
+  A := TMyHTMLParser.Parse(AHTMLDocument.all, 'DIV', 'off-grid', 1);
 
   A := TMyHTMLParser.Parse(A[0].all as IHTMLElementCollection, 'A',
     'category-teaser off-grid__item');
@@ -36,14 +58,17 @@ begin
     B := TMyHTMLParser.Parse(AHTMLElement.all as IHTMLElementCollection, 'P',
       'category-teaser__title', 1);
 
+    ih := B[0].innerHTML;
+    it := B[0].innerText;
+
     AIHTMLAnchorElement := AHTMLElement as IHTMLAnchorElement;
 
-    ACategoryInfoDS.W.TryAppend;
-    ACategoryInfoDS.W.ParentID.F.AsInteger := AParentID;
-    ACategoryInfoDS.W.HREF.F.Value := TURLHelper.GetAbsoluteURL(AMyHTMLRec.URL,
+    FCategoryInfoDS.W.TryAppend;
+    FCategoryInfoDS.W.ParentID.F.AsInteger := AParentID;
+    FCategoryInfoDS.W.HREF.F.Value := TURLHelper.GetAbsoluteURL(AURL,
       AIHTMLAnchorElement.HREF);
-    ACategoryInfoDS.W.Caption.F.Value := B[0].innerText;
-    ACategoryInfoDS.W.TryPost;
+    FCategoryInfoDS.W.Caption.F.Value := B[0].innerText;
+    FCategoryInfoDS.W.TryPost;
   end;
 end;
 

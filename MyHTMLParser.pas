@@ -17,7 +17,7 @@ type
 implementation
 
 uses
-  System.SysUtils, System.Generics.Collections;
+  System.Generics.Collections, System.SysUtils, System.Variants;
 
 class function TMyHTMLParser.Parse(AHTMLElementCollection
   : IHTMLElementCollection; const ATagName, AClassName: String;
@@ -26,6 +26,7 @@ var
   AElementClassName: string;
   AHTMLElement: IHTMLElement;
   i: Integer;
+  it: WideString;
   L: TList<IHTMLElement>;
 begin
   Assert(AHTMLElementCollection <> nil);
@@ -35,17 +36,19 @@ begin
   try
     for i := 0 to AHTMLElementCollection.length - 1 do
     begin
-      AHTMLElement := AHTMLElementCollection.item(i, 0) as IHTMLElement;
+      AHTMLElement := AHTMLElementCollection.item(i, EmptyParam)
+        as IHTMLElement;
       Assert(AHTMLElement <> nil);
       AElementClassName := AHTMLElement._className;
       AElementClassName := AElementClassName.Trim;
 
-//      if AElementClassName.StartsWith('pagination-light__controls') then
-//        beep;
+      // if AElementClassName.StartsWith('pagination-light__controls') then
+      // beep;
 
-      if (AHTMLElement.tagName = ATagName) and
-        (AElementClassName = AClassName) then
+      if (AHTMLElement.tagName = ATagName) and (AElementClassName = AClassName)
+      then
       begin
+        it := AHTMLElement.innerText;
         L.Add(AHTMLElement);
       end;
     end;

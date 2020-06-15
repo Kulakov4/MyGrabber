@@ -9,8 +9,8 @@ uses
 type
   TProductListParser = class(TComponent)
   public
-    procedure Parse(AMyHTMLRec: TMyHTMLRec; AProductListInfoDS: TProductListInfoDS;
-        AParentID: Integer);
+    procedure Parse(AHTMLDocument: IHTMLDocument2; AProductListInfoDS:
+        TProductListInfoDS; AParentID: Integer; AURL: string);
   end;
 
 implementation
@@ -18,8 +18,8 @@ implementation
 uses
   MyHTMLParser, URLHelper;
 
-procedure TProductListParser.Parse(AMyHTMLRec: TMyHTMLRec; AProductListInfoDS:
-    TProductListInfoDS; AParentID: Integer);
+procedure TProductListParser.Parse(AHTMLDocument: IHTMLDocument2;
+    AProductListInfoDS: TProductListInfoDS; AParentID: Integer; AURL: string);
 var
   A: TArray<IHTMLElement>;
   AHTMLAnchorElement: IHTMLAnchorElement;
@@ -27,7 +27,7 @@ var
   B: TArray<IHTMLElement>;
   C: TArray<IHTMLElement>;
 begin
-  A := TMyHTMLParser.Parse(AMyHTMLRec.HTMLDocument.all, 'DIV', 'row subcategory-list-row', 1);
+  A := TMyHTMLParser.Parse(AHTMLDocument.all, 'DIV', 'row subcategory-list-row', 1);
 
   A := TMyHTMLParser.Parse(A[0].all as IHTMLElementCollection, 'DIV',
     'product-teaser__text-container');
@@ -44,7 +44,7 @@ begin
 
     AProductListInfoDS.W.TryAppend;
     AProductListInfoDS.W.ParentID.F.AsInteger := AParentID;
-    AProductListInfoDS.W.HREF.F.Value := TURLHelper.GetAbsoluteURL(AMyHTMLRec.URL, AHTMLAnchorElement.HREF);
+    AProductListInfoDS.W.HREF.F.Value := TURLHelper.GetAbsoluteURL(AURL, AHTMLAnchorElement.HREF);
     AProductListInfoDS.W.Caption.F.Value := B[0].innerText;
     AProductListInfoDS.W.ItemNumber.F.Value := C[0].innerText;
     AProductListInfoDS.W.TryPost;

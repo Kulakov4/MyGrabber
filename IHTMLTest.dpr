@@ -19,7 +19,10 @@ uses
   GridSort in 'GridSort.pas',
   NotifyEvents in 'NotifyEvents.pas',
   DBRecordHolder in 'DBRecordHolder.pas',
-  PageParser in 'PageParser.pas';
+  PageParser in 'PageParser.pas',
+  ParserManager in 'ParserManager.pas',
+  ParserInterface in 'ParserInterface.pas',
+  PageParserInterface in 'PageParserInterface.pas';
 
 {$R *.res}
 

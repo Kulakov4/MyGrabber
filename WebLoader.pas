@@ -12,13 +12,13 @@ type
     IdSSLIOHandlerSocketOpenSSL: TIdSSLIOHandlerSocketOpenSSL;
     IdHTTP: TIdHTTP;
   strict private
-    function Load(const AURL: WideString): WideString; stdcall;
   private
   class var
     FSingleInstance: TWebDM;
     { Private declarations }
   public
     class function Instance: TWebDM; static;
+    function Load(const AURL: WideString): WideString; stdcall;
     { Public declarations }
   end;
 

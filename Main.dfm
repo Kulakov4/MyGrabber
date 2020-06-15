@@ -21,12 +21,8 @@ object MainForm: TMainForm
     Height = 641
     Align = alClient
     TabOrder = 0
-    Properties.ActivePage = cxTabSheetProductList
+    Properties.ActivePage = cxTabSheetCategory
     Properties.CustomButtons.Buttons = <>
-    ExplicitLeft = 8
-    ExplicitTop = 120
-    ExplicitWidth = 481
-    ExplicitHeight = 297
     ClientRectBottom = 637
     ClientRectLeft = 4
     ClientRectRight = 873
