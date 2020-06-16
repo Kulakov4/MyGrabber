@@ -7,42 +7,45 @@ object MainForm: TMainForm
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
-  Font.Height = -16
+  Font.Height = -15
   Font.Name = 'Tahoma'
   Font.Style = []
   OldCreateOrder = False
   OnCreate = FormCreate
+  DesignSize = (
+    877
+    669)
   PixelsPerInch = 96
-  TextHeight = 19
+  TextHeight = 18
   object cxPageControl1: TcxPageControl
     Left = 0
-    Top = 28
+    Top = 72
     Width = 877
-    Height = 641
-    Align = alClient
+    Height = 597
+    Anchors = [akLeft, akTop, akRight, akBottom]
     TabOrder = 0
     Properties.ActivePage = cxTabSheetCategory
     Properties.CustomButtons.Buttons = <>
-    ClientRectBottom = 637
+    ClientRectBottom = 593
     ClientRectLeft = 4
     ClientRectRight = 873
-    ClientRectTop = 30
+    ClientRectTop = 29
     object cxTabSheetCategory: TcxTabSheet
       Caption = #1050#1072#1090#1077#1075#1086#1088#1080#1080' '#1080' '#1087#1086#1076#1082#1072#1090#1077#1075#1086#1088#1080#1080
       ImageIndex = 0
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
+      ExplicitTop = 30
+      ExplicitHeight = 607
     end
     object cxTabSheetProductList: TcxTabSheet
       Caption = #1057#1087#1080#1089#1082#1080' '#1090#1086#1074#1072#1088#1086#1074
       ImageIndex = 1
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
+      ExplicitTop = 30
+      ExplicitHeight = 563
     end
+  end
+  object cxLabel1: TcxLabel
+    Left = 8
+    Top = 40
   end
   object dxBarManager1: TdxBarManager
     Font.Charset = DEFAULT_CHARSET
@@ -100,5 +103,10 @@ object MainForm: TMainForm
       Caption = #1053#1072#1095#1072#1090#1100
       OnExecute = actStartGrabExecute
     end
+  end
+  object Timer1: TTimer
+    OnTimer = Timer1Timer
+    Left = 176
+    Top = 40
   end
 end

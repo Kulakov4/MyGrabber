@@ -12,7 +12,7 @@ uses
   IdIOHandlerSocket, IdIOHandlerStack, IdSSL, IdSSLOpenSSL, Vcl.ExtCtrls,
   GridFrame, CategoryInfoDataSet, ProductListInfoDataSet, dxBarBuiltInMenu,
   System.Actions, Vcl.ActnList, cxClasses, dxBar, cxPC, PageParser,
-  CategoryParser, ProductListParser;
+  CategoryParser, ProductListParser, cxLabel;
 
 type
   TMainForm = class(TForm)
@@ -24,18 +24,26 @@ type
     cxTabSheetCategory: TcxTabSheet;
     cxTabSheetProductList: TcxTabSheet;
     dxBarButton1: TdxBarButton;
+    cxLabel1: TcxLabel;
+    Timer1: TTimer;
     procedure actStartGrabExecute(Sender: TObject);
     procedure FormCreate(Sender: TObject);
+    procedure Timer1Timer(Sender: TObject);
   private
+    FCaptionIndex: Integer;
+    FCaptions: TArray<String>;
     FCategoryInfoDS: TCategoryInfoDS;
     FCategoryParser: TCategoryParser;
     FPageParser: TPageParser;
+    FPath: string;
     FProductListInfoDS: TProductListInfoDS;
     FProductListParser: TProductListParser;
     FViewCategory: TfrmGrid;
     FViewProductList: TfrmGrid;
+    procedure AddToLog(const S: string);
     procedure DoAfterCategoryParse(Sender: TObject);
     procedure DoAfterProductListParse(Sender: TObject);
+    procedure DoBeforeCategoryLoad(Sender: TObject);
     procedure DoOnChildCategoryParseComplete(Sender: TObject);
     procedure DoOnProductListParseComplete(Sender: TObject);
     procedure DoOnRootCategoryParseComplete(Sender: TObject);
@@ -68,6 +76,11 @@ begin
   StartGrab;
 end;
 
+procedure TMainForm.AddToLog(const S: string);
+begin
+  cxLabel1.Caption := S;
+end;
+
 procedure TMainForm.DoAfterCategoryParse(Sender: TObject);
 begin
   FCategoryInfoDS.W.AppendFrom(CategoryParser.W);
@@ -78,6 +91,13 @@ procedure TMainForm.DoAfterProductListParse(Sender: TObject);
 begin
   FProductListInfoDS.W.AppendFrom(ProductListParser.W);
   FViewProductList.MyApplyBestFit;
+end;
+
+procedure TMainForm.DoBeforeCategoryLoad(Sender: TObject);
+begin
+  AddToLog(Format('%s\%s - поиск подкатегорий',
+    [FPath, FCaptions[FCaptionIndex]]));
+  Inc(FCaptionIndex);
 end;
 
 procedure TMainForm.DoOnChildCategoryParseComplete(Sender: TObject);
@@ -97,7 +117,8 @@ begin
     FCategoryInfoDS.W.DropClone(WW.DataSet as TFDMemTable);
   end;
 
-  PM := TParserManager.Create(Self, AURLs, ProductListParser, PageParser, AIDArr);
+  PM := TParserManager.Create(Self, AURLs, ProductListParser,
+    PageParser, AIDArr);
   TNotifyEventWrap.Create(PM.AfterParse, DoAfterProductListParse);
   TNotifyEventWrap.Create(PM.OnParseComplete, DoOnProductListParseComplete);
 end;
@@ -120,11 +141,14 @@ begin
     // Получаем массив URL
     AURLs := WW.HREF.AllValues(',').Split([',']);
     AIDArr := WW.ID.AsIntArray();
+    FCaptions := WW.Caption.AllValues(',').Split([',']);
   finally
     FCategoryInfoDS.W.DropClone(WW.DataSet as TFDMemTable);
   end;
 
+  FCaptionIndex := 0;
   PM := TParserManager.Create(Self, AURLs, CategoryParser, nil, AIDArr);
+  TNotifyEventWrap.Create(PM.BeforeLoad, DoBeforeCategoryLoad);
   TNotifyEventWrap.Create(PM.AfterParse, DoAfterCategoryParse);
   TNotifyEventWrap.Create(PM.OnParseComplete, DoOnChildCategoryParseComplete);
 end;
@@ -169,78 +193,42 @@ begin
 end;
 
 procedure TMainForm.StartGrab;
-{
-  var
-  AURL: string;
-  AMyHTMLRec: TMyHTMLRec;
-  NextPageAvailable: Boolean;
-  WW: TCategoryInfoW;
-}
 var
   PM: TParserManager;
 begin
+  FPath := 'Промышленные соединители Han®';
+  AddToLog(FPath + ' - поиск подкатегорий');
+
   PM := TParserManager.Create(Self,
     ['https://b2b.harting.com/ebusiness/ru/ru/13991'], CategoryParser,
     nil, [0]);
   TNotifyEventWrap.Create(PM.AfterParse, DoAfterCategoryParse);
   TNotifyEventWrap.Create(PM.OnParseComplete, DoOnRootCategoryParseComplete);
+end;
 
-  {
-    AURL := 'https://b2b.harting.com/ebusiness/ru/ru/13991';
+procedure TMainForm.Timer1Timer(Sender: TObject);
+var
+  c: Char;
+  ch: Char;
+  S: string;
+begin
+  if cxLabel1.Caption = '' then
+    Exit;
 
-    // Загружаем страницу и формируем HTML документ
-    AMyHTMLRec := TMyHTMLLoader.Load(AURL, TWebDM.Instance);
+  ch := '-';
+  S := cxLabel1.Caption;
 
-    // парсим наш HTML докумет на наличие категорйи
-    CategoryParser.Parse(AMyHTMLRec, FCategoryInfoDS, 0);
-
-    WW := TCategoryInfoW.Create(FCategoryInfoDS.W.AddClone(''));
-    try
-    WW.FilterByParentID(0);
-    WW.DataSet.First;
-    while not WW.DataSet.Eof do
-    begin
-    // Загружаем страницу и формируем HTML документ
-    AMyHTMLRec := TMyHTMLLoader.Load(WW.HREF.F.AsString, TWebDM.Instance);
-
-    // Парсим дочерние HTML документы на наличие подкатегорий
-    CategoryParser.Parse(AMyHTMLRec, FCategoryInfoDS, WW.ID.F.AsInteger);
-    WW.DataSet.Next;
-    end;
-    finally
-    FCategoryInfoDS.W.DropClone(WW.DataSet as TFDMemTable);
-    end;
-
-    WW := TCategoryInfoW.Create(FCategoryInfoDS.W.AddClone(''));
-    try
-    WW.FilterByParentID(1);
-    WW.DataSet.First;
-    // while not WW.DataSet.Eof do
-    // begin
-
-    // Цикл по всем страницам
-    AURL := WW.HREF.F.AsString;
-    repeat
-    // Загружаем страницу и формируем HTML документ
-    AMyHTMLRec := TMyHTMLLoader.Load(AURL, TWebDM.Instance);
-
-    // Парсим эту страницу на наличие списка товаров
-    ProductListParser.Parse(AMyHTMLRec, FProductListInfoDS,
-    WW.ID.F.AsInteger);
-
-    // Парсим эту страницу на наличие ссылки на следующую страницу
-    NextPageAvailable := PageParser.Parse(AMyHTMLRec, AURL);
-    until not NextPageAvailable
-    // WW.DataSet.Next;
-    // end;
-    finally FCategoryInfoDS.W.DropClone(WW.DataSet as TFDMemTable);
-    end;
-
-    FCategoryInfoDS.First;
-    FProductListInfoDS.First;
-    FViewCategory.MyApplyBestFit;
-    FViewProductList.MyApplyBestFit;
-  }
+  c := S.Chars[S.Length - 1];
+  case c of
+  '-': ch := '\';
+  '\': ch := '|';
+  '|': ch := '/';
+  '/': ch := '-';
+  else
+    S := S + '  ';
+  end;
+  S := S.Substring(0, S.Length - 1) + ch;
+  cxLabel1.Caption := S;
 end;
 
 end.

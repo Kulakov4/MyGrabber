@@ -11,19 +11,24 @@ type
   private
     FOnParseComplete: TNotifyEventsEx;
     FAfterParse: TNotifyEventsEx;
+    FBeforeLoad: TNotifyEventsEx;
     FPageParser: IPageParser;
     FParser: IParser;
     function GetOnParseComplete: TNotifyEventsEx;
     function GetAfterParse: TNotifyEventsEx;
+    function GetBeforeLoad: TNotifyEventsEx;
     procedure Main(const AURLs: TArray<String>; AParentIDArr: TArray<Integer>);
     procedure NotifyAfterParse;
+    procedure NotifyBeforeLoad;
     procedure OnThreadTerminate(Sender: TObject);
   public
-    constructor Create(AOwner: TComponent; AURLs: TArray<String>; AParser: IParser;
-        APageParser: IPageParser; AParentIDArr: TArray<Integer>); reintroduce;
+    constructor Create(AOwner: TComponent; AURLs: TArray<String>;
+      AParser: IParser; APageParser: IPageParser;
+      AParentIDArr: TArray<Integer>); reintroduce;
     destructor Destroy; override;
     property OnParseComplete: TNotifyEventsEx read GetOnParseComplete;
     property AfterParse: TNotifyEventsEx read GetAfterParse;
+    property BeforeLoad: TNotifyEventsEx read GetBeforeLoad;
   end;
 
 implementation
@@ -33,7 +38,7 @@ uses
   System.Win.ComObj, Vcl.Forms;
 
 constructor TParserManager.Create(AOwner: TComponent; AURLs: TArray<String>;
-    AParser: IParser; APageParser: IPageParser; AParentIDArr: TArray<Integer>);
+  AParser: IParser; APageParser: IPageParser; AParentIDArr: TArray<Integer>);
 var
   myThread: TThread;
 begin
@@ -58,6 +63,12 @@ begin
   inherited;
   if FOnParseComplete <> nil then
     FreeAndNil(FOnParseComplete);
+
+  if FBeforeLoad <> nil then
+    FreeAndNil(FBeforeLoad);
+
+  if FAfterParse <> nil then
+    FreeAndNil(FAfterParse);
 end;
 
 function TParserManager.GetOnParseComplete: TNotifyEventsEx;
@@ -76,8 +87,16 @@ begin
   Result := FAfterParse;
 end;
 
-procedure TParserManager.Main(const AURLs: TArray<String>; AParentIDArr:
-    TArray<Integer>);
+function TParserManager.GetBeforeLoad: TNotifyEventsEx;
+begin
+  if FBeforeLoad = nil then
+    FBeforeLoad := TNotifyEventsEx.Create(Self);
+
+  Result := FBeforeLoad;
+end;
+
+procedure TParserManager.Main(const AURLs: TArray<String>;
+AParentIDArr: TArray<Integer>);
 var
   AHTML: WideString;
   AHTMLDocument: IHTMLDocument2;
@@ -96,6 +115,13 @@ begin
     AParentID := AParentIDArr[i];
     // ÷икл по всем страницам HTML документов
     repeat
+      // »звещаем главный поток о том, что сейчас будет загрузка HTML документа
+      TThread.Synchronize(TThread.CurrentThread,
+        procedure()
+        begin
+          NotifyBeforeLoad;
+        end);
+
       // «агружаем страницу
       AHTML := TWebDM.Instance.Load(APageURL);
 
@@ -137,6 +163,12 @@ procedure TParserManager.NotifyAfterParse;
 begin
   if FAfterParse <> nil then
     FAfterParse.CallEventHandlers(Self);
+end;
+
+procedure TParserManager.NotifyBeforeLoad;
+begin
+  if FBeforeLoad <> nil then
+    FBeforeLoad.CallEventHandlers(Self);
 end;
 
 procedure TParserManager.OnThreadTerminate(Sender: TObject);
