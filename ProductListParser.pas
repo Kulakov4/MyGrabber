@@ -4,13 +4,19 @@ interface
 
 uses
   FireDAC.Comp.Client, MSHTML, MyHTMLLoader, ProductListInfoDataSet,
-  System.Classes;
+  System.Classes, ParserInterface, DSWrap;
 
 type
-  TProductListParser = class(TComponent)
+  TProductListParser = class(TComponent, IParser)
+  strict private
+  private
+    FProductListInfoDS: TProductListInfoDS;
+    function GetW: TDSWrap;
   public
-    procedure Parse(AHTMLDocument: IHTMLDocument2; AProductListInfoDS:
-        TProductListInfoDS; AParentID: Integer; AURL: string);
+    constructor Create(AOwner: TComponent); override;
+    procedure Parse(AURL: string; AHTMLDocument: IHTMLDocument2;
+      AParentID: Integer);
+    property W: TDSWrap read GetW;
   end;
 
 implementation
@@ -18,8 +24,19 @@ implementation
 uses
   MyHTMLParser, URLHelper;
 
-procedure TProductListParser.Parse(AHTMLDocument: IHTMLDocument2;
-    AProductListInfoDS: TProductListInfoDS; AParentID: Integer; AURL: string);
+constructor TProductListParser.Create(AOwner: TComponent);
+begin
+  inherited;
+  FProductListInfoDS := TProductListInfoDS.Create(Self);
+end;
+
+function TProductListParser.GetW: TDSWrap;
+begin
+  Result := FProductListInfoDS.W;
+end;
+
+procedure TProductListParser.Parse(AURL: string; AHTMLDocument: IHTMLDocument2;
+  AParentID: Integer);
 var
   A: TArray<IHTMLElement>;
   AHTMLAnchorElement: IHTMLAnchorElement;
@@ -27,7 +44,9 @@ var
   B: TArray<IHTMLElement>;
   C: TArray<IHTMLElement>;
 begin
-  A := TMyHTMLParser.Parse(AHTMLDocument.all, 'DIV', 'row subcategory-list-row', 1);
+  FProductListInfoDS.EmptyDataSet;
+  A := TMyHTMLParser.Parse(AHTMLDocument.all, 'DIV',
+    'row subcategory-list-row', 1);
 
   A := TMyHTMLParser.Parse(A[0].all as IHTMLElementCollection, 'DIV',
     'product-teaser__text-container');
@@ -42,12 +61,15 @@ begin
     C := TMyHTMLParser.Parse(AHTMLElement.all as IHTMLElementCollection, 'SPAN',
       'product-teaser__info', 1);
 
-    AProductListInfoDS.W.TryAppend;
-    AProductListInfoDS.W.ParentID.F.AsInteger := AParentID;
-    AProductListInfoDS.W.HREF.F.Value := TURLHelper.GetAbsoluteURL(AURL, AHTMLAnchorElement.HREF);
-    AProductListInfoDS.W.Caption.F.Value := B[0].innerText;
-    AProductListInfoDS.W.ItemNumber.F.Value := C[0].innerText;
-    AProductListInfoDS.W.TryPost;
+    with FProductListInfoDS.W do
+    begin
+      TryAppend;
+      ParentID.F.AsInteger := AParentID;
+      HREF.F.Value := TURLHelper.GetAbsoluteURL(AURL, AHTMLAnchorElement.HREF);
+      Caption.F.Value := B[0].innerText;
+      ItemNumber.F.Value := C[0].innerText;
+      TryPost;
+    end;
   end;
 end;
 

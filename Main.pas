@@ -34,6 +34,10 @@ type
     FProductListParser: TProductListParser;
     FViewCategory: TfrmGrid;
     FViewProductList: TfrmGrid;
+    procedure DoAfterCategoryParse(Sender: TObject);
+    procedure DoAfterProductListParse(Sender: TObject);
+    procedure DoOnChildCategoryParseComplete(Sender: TObject);
+    procedure DoOnProductListParseComplete(Sender: TObject);
     procedure DoOnRootCategoryParseComplete(Sender: TObject);
     function GetCategoryParser: TCategoryParser;
     function GetPageParser: TPageParser;
@@ -55,7 +59,7 @@ implementation
 
 uses
   WebLoader, FireDAC.Comp.Client,
-  MyHTMLLoader, ParserManager, NotifyEvents;
+  MyHTMLLoader, ParserManager, NotifyEvents, System.Generics.Collections;
 
 {$R *.dfm}
 
@@ -64,9 +68,65 @@ begin
   StartGrab;
 end;
 
-procedure TMainForm.DoOnRootCategoryParseComplete(Sender: TObject);
+procedure TMainForm.DoAfterCategoryParse(Sender: TObject);
 begin
-  ShowMessage('OK');
+  FCategoryInfoDS.W.AppendFrom(CategoryParser.W);
+  FViewCategory.MyApplyBestFit;
+end;
+
+procedure TMainForm.DoAfterProductListParse(Sender: TObject);
+begin
+  FProductListInfoDS.W.AppendFrom(ProductListParser.W);
+  FViewProductList.MyApplyBestFit;
+end;
+
+procedure TMainForm.DoOnChildCategoryParseComplete(Sender: TObject);
+var
+  AIDArr: TArray<Integer>;
+  AURLs: TArray<String>;
+  PM: TParserManager;
+  WW: TCategoryInfoW;
+begin
+  WW := TCategoryInfoW.Create(FCategoryInfoDS.W.AddClone(''));
+  try
+    WW.FilterByParentID(1);
+    AURLs := WW.HREF.AllValues(',').Split([',']);
+    AIDArr := WW.ID.AsIntArray();
+
+  finally
+    FCategoryInfoDS.W.DropClone(WW.DataSet as TFDMemTable);
+  end;
+
+  PM := TParserManager.Create(Self, AURLs, ProductListParser, PageParser, AIDArr);
+  TNotifyEventWrap.Create(PM.AfterParse, DoAfterProductListParse);
+  TNotifyEventWrap.Create(PM.OnParseComplete, DoOnProductListParseComplete);
+end;
+
+procedure TMainForm.DoOnProductListParseComplete(Sender: TObject);
+begin
+  // TODO -cMM: TMainForm.DoOnProductListParseComplete default body inserted
+end;
+
+procedure TMainForm.DoOnRootCategoryParseComplete(Sender: TObject);
+var
+  AIDArr: TArray<Integer>;
+  AURLs: TArray<String>;
+  PM: TParserManager;
+  WW: TCategoryInfoW;
+begin
+  WW := TCategoryInfoW.Create(FCategoryInfoDS.W.AddClone(''));
+  try
+    WW.FilterByParentID(0);
+    // Получаем массив URL
+    AURLs := WW.HREF.AllValues(',').Split([',']);
+    AIDArr := WW.ID.AsIntArray();
+  finally
+    FCategoryInfoDS.W.DropClone(WW.DataSet as TFDMemTable);
+  end;
+
+  PM := TParserManager.Create(Self, AURLs, CategoryParser, nil, AIDArr);
+  TNotifyEventWrap.Create(PM.AfterParse, DoAfterCategoryParse);
+  TNotifyEventWrap.Create(PM.OnParseComplete, DoOnChildCategoryParseComplete);
 end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
@@ -120,8 +180,9 @@ var
   PM: TParserManager;
 begin
   PM := TParserManager.Create(Self,
-    ['https://b2b.harting.com/ebusiness/ru/ru/13991'], CategoryParser, nil,
-    FCategoryInfoDS.W, 0);
+    ['https://b2b.harting.com/ebusiness/ru/ru/13991'], CategoryParser,
+    nil, [0]);
+  TNotifyEventWrap.Create(PM.AfterParse, DoAfterCategoryParse);
   TNotifyEventWrap.Create(PM.OnParseComplete, DoOnRootCategoryParseComplete);
 
   {

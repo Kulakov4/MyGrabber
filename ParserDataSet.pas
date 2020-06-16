@@ -19,7 +19,7 @@ type
     FParserW: TParserW;
   class var
     FID: Integer;
-    procedure DoAfterInsert(Sender: TObject);
+    procedure Do_AfterInsert(Sender: TObject);
   protected
     function CreateWrap: TParserW; virtual;
   public
@@ -42,7 +42,7 @@ constructor TParserDS.Create(AOwner: TComponent);
 begin
   inherited;
   FParserW := CreateWrap;
-  TNotifyEventWrap.Create(FParserW.AfterInsert, DoAfterInsert,
+  TNotifyEventWrap.Create(FParserW.AfterInsert, Do_AfterInsert,
     FParserW.EventList);
 end;
 
@@ -51,7 +51,7 @@ begin
   Result := TParserW.Create(Self);
 end;
 
-procedure TParserDS.DoAfterInsert(Sender: TObject);
+procedure TParserDS.Do_AfterInsert(Sender: TObject);
 begin
   // Заполняем поле ID
   Inc(FID);

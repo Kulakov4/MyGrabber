@@ -8,8 +8,7 @@ uses
 type
   TPageParser = class(TComponent, IPageParser)
   public
-    function Parse(AHTMLDocument: IHTMLDocument2; AURL: string; var ANextPageURL:
-        string): Boolean;
+    function Parse(AHTMLDocument: IHTMLDocument2; var AURL: string): Boolean;
   end;
 
 implementation
@@ -17,8 +16,8 @@ implementation
 uses
   MyHTMLParser, URLHelper;
 
-function TPageParser.Parse(AHTMLDocument: IHTMLDocument2; AURL: string; var
-    ANextPageURL: string): Boolean;
+function TPageParser.Parse(AHTMLDocument: IHTMLDocument2; var AURL: string):
+    Boolean;
 var
   A: TArray<IHTMLElement>;
   AHTMLAnchorElement: IHTMLAnchorElement;
@@ -39,7 +38,7 @@ begin
 
   AHTMLAnchorElement := A[0] as IHTMLAnchorElement;
   Result := True;
-  ANextPageURL := TURLHelper.GetAbsoluteURL(AURL, AHTMLAnchorElement.href);
+  AURL := TURLHelper.GetAbsoluteURL(AURL, AHTMLAnchorElement.href);
 end;
 
 end.

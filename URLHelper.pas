@@ -18,7 +18,6 @@ uses
 class function TURLHelper.GetAbsoluteURL(AURL: string;
   const href: string): string;
 var
-  i: Integer;
   S: string;
   URI: TIdURI;
   URI2: TIdURI;

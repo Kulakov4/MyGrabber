@@ -63,12 +63,14 @@ begin
 
     AIHTMLAnchorElement := AHTMLElement as IHTMLAnchorElement;
 
-    FCategoryInfoDS.W.TryAppend;
-    FCategoryInfoDS.W.ParentID.F.AsInteger := AParentID;
-    FCategoryInfoDS.W.HREF.F.Value := TURLHelper.GetAbsoluteURL(AURL,
-      AIHTMLAnchorElement.HREF);
-    FCategoryInfoDS.W.Caption.F.Value := B[0].innerText;
-    FCategoryInfoDS.W.TryPost;
+    with FCategoryInfoDS.W do
+    begin
+      TryAppend;
+      ParentID.F.AsInteger := AParentID;
+      HREF.F.Value := TURLHelper.GetAbsoluteURL(AURL, AIHTMLAnchorElement.HREF);
+      Caption.F.Value := B[0].innerText;
+      TryPost;
+    end;
   end;
 end;
 
