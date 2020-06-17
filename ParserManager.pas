@@ -7,24 +7,32 @@ uses
   MSHTML;
 
 type
+  TNotifyObj = class(TObject)
+  private
+    FURL: string;
+  protected
+  public
+    property URL: string read FURL;
+  end;
+
   TParserManager = class(TComponent)
   private
     FOnParseComplete: TNotifyEventsEx;
     FAfterParse: TNotifyEventsEx;
     FBeforeLoad: TNotifyEventsEx;
+    FNotifyObj: TNotifyObj;
     FPageParser: IPageParser;
     FParser: IParser;
     function GetOnParseComplete: TNotifyEventsEx;
     function GetAfterParse: TNotifyEventsEx;
     function GetBeforeLoad: TNotifyEventsEx;
-    procedure Main(const AURLs: TArray<String>; AParentIDArr: TArray<Integer>);
-    procedure NotifyAfterParse;
+    procedure Main(const AURL: String; AParentID: Integer);
+    procedure NotifyAfterParse(AURL: string);
     procedure NotifyBeforeLoad;
     procedure OnThreadTerminate(Sender: TObject);
   public
-    constructor Create(AOwner: TComponent; AURLs: TArray<String>;
-      AParser: IParser; APageParser: IPageParser;
-      AParentIDArr: TArray<Integer>); reintroduce;
+    constructor Create(AOwner: TComponent; AURL: String; AParser: IParser;
+      APageParser: IPageParser; AParentID: Integer); reintroduce;
     destructor Destroy; override;
     property OnParseComplete: TNotifyEventsEx read GetOnParseComplete;
     property AfterParse: TNotifyEventsEx read GetAfterParse;
@@ -37,21 +45,21 @@ uses
   MyHTMLLoader, WebLoader, System.SysUtils, System.Variants, Winapi.ActiveX,
   System.Win.ComObj, Vcl.Forms;
 
-constructor TParserManager.Create(AOwner: TComponent; AURLs: TArray<String>;
-  AParser: IParser; APageParser: IPageParser; AParentIDArr: TArray<Integer>);
+constructor TParserManager.Create(AOwner: TComponent; AURL: String;
+  AParser: IParser; APageParser: IPageParser; AParentID: Integer);
 var
   myThread: TThread;
 begin
   inherited Create(AOwner);
-  Assert(Length(AURLs) > 0);
-  Assert(Length(AParentIDArr) = Length(AURLs));
+  Assert(AURL.Length > 0);
+  Assert(AParentID > 0);
   FParser := AParser;
   FPageParser := APageParser;
 
   myThread := TThread.CreateAnonymousThread(
     procedure
     begin
-      Main(AURLs, AParentIDArr);
+      Main(AURL, AParentID);
     end);
   myThread.OnTerminate := OnThreadTerminate;
   myThread.FreeOnTerminate := True;
@@ -95,74 +103,73 @@ begin
   Result := FBeforeLoad;
 end;
 
-procedure TParserManager.Main(const AURLs: TArray<String>;
-AParentIDArr: TArray<Integer>);
+procedure TParserManager.Main(const AURL: String; AParentID: Integer);
 var
   AHTML: WideString;
   AHTMLDocument: IHTMLDocument2;
   ANextPageAvailable: Boolean;
   APageURL: String;
-  AParentID: Integer;
-  i: Integer;
   V: Variant;
 begin
-  Assert(Length(AURLs) > 0);
-  Assert(Length(AParentIDArr) = Length(AURLs));
+  Assert(not AURL.IsEmpty);
+  Assert(AParentID > 0);
 
-  for i := Low(AURLs) to High(AURLs) do
-  begin
-    APageURL := AURLs[i];
-    AParentID := AParentIDArr[i];
-    // Цикл по всем страницам HTML документов
-    repeat
-      // Извещаем главный поток о том, что сейчас будет загрузка HTML документа
+  APageURL := AURL;
+  // Цикл по всем страницам HTML документов
+  repeat
+    // Извещаем главный поток о том, что сейчас будет загрузка HTML документа
+    TThread.Synchronize(TThread.CurrentThread,
+      procedure()
+      begin
+        NotifyBeforeLoad;
+      end);
+
+    // Загружаем страницу
+    AHTML := TWebDM.Instance.Load(APageURL);
+
+    // Формируем HTML документ
+    CoInitialize(nil);
+    AHTMLDocument := coHTMLDocument.Create as IHTMLDocument2;
+    try
+      V := VarArrayCreate([0, 0], VarVariant);
+      V[0] := AHTML; // присваиваем 0 элементу массива строку с html
+
+      // пишем в интерфейс
+      AHTMLDocument.Write(PSafeArray(System.TVarData(V).VArray));
+
+      // парсим наш HTML докумет на наличие категорий
+      FParser.Parse(APageURL, AHTMLDocument, AParentID);
+
+      // Извещаем главный поток о том, что парсинг документа закончен
       TThread.Synchronize(TThread.CurrentThread,
         procedure()
         begin
-          NotifyBeforeLoad;
+          NotifyAfterParse(APageURL);
         end);
 
-      // Загружаем страницу
-      AHTML := TWebDM.Instance.Load(APageURL);
+      ANextPageAvailable := False;
 
-      // Формируем HTML документ
+      if Assigned(FPageParser) then
+        // Парсим эту страницу на наличие ссылки на следующую страницу
+        ANextPageAvailable := FPageParser.Parse(AHTMLDocument, APageURL);
+
+    finally
+      AHTMLDocument := nil;
       CoInitialize(nil);
-      AHTMLDocument := coHTMLDocument.Create as IHTMLDocument2;
-      try
-        V := VarArrayCreate([0, 0], VarVariant);
-        V[0] := AHTML; // присваиваем 0 элементу массива строку с html
-
-        // пишем в интерфейс
-        AHTMLDocument.Write(PSafeArray(System.TVarData(V).VArray));
-
-        // парсим наш HTML докумет на наличие категорий
-        FParser.Parse(APageURL, AHTMLDocument, AParentID);
-
-        // Извещаем главный поток о том, что парсинг документа закончен
-        TThread.Synchronize(TThread.CurrentThread,
-          procedure()
-          begin
-            NotifyAfterParse;
-          end);
-
-        ANextPageAvailable := False;
-
-        if Assigned(FPageParser) then
-          // Парсим эту страницу на наличие ссылки на следующую страницу
-          ANextPageAvailable := FPageParser.Parse(AHTMLDocument, APageURL);
-
-      finally
-        AHTMLDocument := nil;
-        CoInitialize(nil);
-      end;
-    until not ANextPageAvailable;
-  end;
+    end;
+  until not ANextPageAvailable;
 end;
 
-procedure TParserManager.NotifyAfterParse;
+procedure TParserManager.NotifyAfterParse(AURL: string);
 begin
-  if FAfterParse <> nil then
-    FAfterParse.CallEventHandlers(Self);
+  if FAfterParse = nil then
+    Exit;
+
+  if FNotifyObj = nil then
+    FNotifyObj := TNotifyObj.Create;
+
+  FNotifyObj.FURL := AURL;
+  FAfterParse.CallEventHandlers(FNotifyObj);
 end;
 
 procedure TParserManager.NotifyBeforeLoad;

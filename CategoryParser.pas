@@ -49,7 +49,11 @@ begin
   Assert(not AURL.IsEmpty);
 
   FCategoryInfoDS.EmptyDataSet;
-  A := TMyHTMLParser.Parse(AHTMLDocument.all, 'DIV', 'off-grid', 1);
+  A := TMyHTMLParser.Parse(AHTMLDocument.all, 'DIV', 'off-grid');
+  if Length(A) = 0 then
+    Exit;
+
+  Assert(Length(A) = 1);
 
   A := TMyHTMLParser.Parse(A[0].all as IHTMLElementCollection, 'A',
     'category-teaser off-grid__item');
