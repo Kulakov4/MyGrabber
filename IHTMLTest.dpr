@@ -22,7 +22,8 @@ uses
   PageParser in 'PageParser.pas',
   ParserManager in 'ParserManager.pas',
   ParserInterface in 'ParserInterface.pas',
-  PageParserInterface in 'PageParserInterface.pas';
+  PageParserInterface in 'PageParserInterface.pas',
+  Status in 'Status.pas';
 
 {$R *.res}
 

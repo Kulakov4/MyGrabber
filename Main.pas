@@ -12,7 +12,8 @@ uses
   IdIOHandlerSocket, IdIOHandlerStack, IdSSL, IdSSLOpenSSL, Vcl.ExtCtrls,
   GridFrame, CategoryInfoDataSet, ProductListInfoDataSet, dxBarBuiltInMenu,
   System.Actions, Vcl.ActnList, cxClasses, dxBar, cxPC, PageParser,
-  CategoryParser, ProductListParser, cxLabel, System.Generics.Collections;
+  CategoryParser, ProductListParser, cxLabel, System.Generics.Collections,
+  Status;
 
 type
   TCategoryNode = class(TObject)
@@ -33,9 +34,12 @@ type
     cxTabSheetCategory: TcxTabSheet;
     cxTabSheetProductList: TcxTabSheet;
     dxBarButton1: TdxBarButton;
-    cxLabel1: TcxLabel;
     Timer1: TTimer;
+    actStopGrab: TAction;
+    cxTabSheetLog: TcxTabSheet;
+    cxMemo1: TcxMemo;
     procedure actStartGrabExecute(Sender: TObject);
+    procedure actStopGrabExecute(Sender: TObject);
     procedure FormCreate(Sender: TObject);
     procedure Timer1Timer(Sender: TObject);
   private
@@ -47,6 +51,7 @@ type
     FPageParser: TPageParser;
     FProductListInfoDS: TProductListInfoDS;
     FProductListParser: TProductListParser;
+    FStatus: TStatus;
     FViewCategory: TfrmGrid;
     FViewProductList: TfrmGrid;
     procedure AddToLog(const S: string);
@@ -60,8 +65,10 @@ type
     function GetCategoryPath(AID: Integer): string;
     function GetPageParser: TPageParser;
     function GetProductListParser: TProductListParser;
+    procedure SetStatus(const Value: TStatus);
     procedure StartGrab;
     procedure StartParsing(AID: Integer);
+    procedure StopGrab;
     { Private declarations }
   protected
     property CategoryParser: TCategoryParser read GetCategoryParser;
@@ -69,6 +76,7 @@ type
     property ProductListParser: TProductListParser read GetProductListParser;
   public
     property CategoryInfoW: TCategoryInfoW read FCategoryInfoW;
+    property Status: TStatus read FStatus write SetStatus;
     { Public declarations }
   end;
 
@@ -88,9 +96,14 @@ begin
   StartGrab;
 end;
 
+procedure TMainForm.actStopGrabExecute(Sender: TObject);
+begin
+  StopGrab;
+end;
+
 procedure TMainForm.AddToLog(const S: string);
 begin
-  cxLabel1.Caption := S;
+  cxMemo1.Lines.Add(S);
 end;
 
 procedure TMainForm.DoAfterCategoryParse(Sender: TObject);
@@ -139,7 +152,7 @@ end;
 procedure TMainForm.DoBeforeCategoryLoad(Sender: TObject);
 begin
   AddToLog(Format('%s - %s %s', [GetCategoryPath(FCategoryNode.ID),
-    'поиск подкаталогов', FCh]));
+    'поиск подкатегорий', FCh]));
 end;
 
 procedure TMainForm.DoBeforeProductListLoad(Sender: TObject);
@@ -151,7 +164,11 @@ end;
 procedure TMainForm.DoOnProductListParseComplete(Sender: TObject);
 var
   AParentID: Integer;
+  AID: Integer;
 begin
+  AID := 0;
+  FCategoryInfoW.DataSet.Filtered := False;
+
   // Переходим на ту категорию, содержимое которой парсили
   FCategoryInfoW.ID.Locate(FCategoryNode.ID, [], True);
 
@@ -165,8 +182,18 @@ begin
   end;
 
   AParentID := FCategoryNode.ParentID;
+
+  FCategoryInfoW.FilterByParentIDAndNotDone(AParentID);
+  try
+    // Если на этом уровне не все категории ещё обработаны
+    if FCategoryInfoW.DataSet.RecordCount > 0 then
+      AID := FCategoryInfoW.ID.F.AsInteger;
+  finally
+    FCategoryInfoW.DataSet.Filtered := False;
+  end;
+
   // Возвращаемся по дереву категорий к дочерним
-  while AParentID > 0 do
+  while (AID = 0) and (AParentID > 0) do
   begin
     // Переходим на дочернюю категорию
     FCategoryInfoW.ID.Locate(AParentID, [], True);
@@ -181,13 +208,24 @@ begin
 
     // Ищем, есть ли на этом уровне не обработанные категории
     FCategoryInfoW.FilterByParentIDAndNotDone(AParentID);
-
-    // Если на этом уровне не все категории ещё обработаны
-    if FCategoryInfoW.DataSet.RecordCount > 0 then
-    begin
-      StartParsing(FCategoryInfoW.ID.F.AsInteger);
-      break;
+    try
+      // Если на этом уровне не все категории ещё обработаны
+      if FCategoryInfoW.DataSet.RecordCount > 0 then
+        AID := FCategoryInfoW.ID.F.AsInteger;
+    finally
+      FCategoryInfoW.DataSet.Filtered := False;
     end;
+    if AID > 0 then
+      break;
+  end;
+
+  // Если нашли категрию которую ещё не парсили
+  if AID > 0 then
+    StartParsing(AID)
+  else
+  begin
+    Status := Stoped;
+    ShowMessage('Парсинг окончен');
   end;
 end;
 
@@ -237,6 +275,7 @@ begin
   FCategoryInfoW := TCategoryInfoW.Create(FCategoryInfoDS.W.AddClone(''));
   FCategoryNode := TCategoryNode.Create;
   FCh := '-';
+  Status := Stoped;
 end;
 
 function TMainForm.GetCategoryParser: TCategoryParser;
@@ -275,8 +314,36 @@ begin
   Result := FProductListParser;
 end;
 
+procedure TMainForm.SetStatus(const Value: TStatus);
+begin
+  FStatus := Value;
+  if FStatus = Stoped then
+  begin
+    Timer1.Enabled := False;
+    dxBarButton1.Action := actStartGrab;
+
+    actStopGrab.Caption := 'Остановить';
+    actStopGrab.Enabled := True;
+  end;
+
+  if FStatus = Parsing then
+  begin
+    dxBarButton1.Action := actStopGrab;
+    Timer1.Enabled := True;
+  end;
+
+  if FStatus = Stoping then
+  begin
+    actStopGrab.Caption := 'Останавливаюсь';
+    actStopGrab.Enabled := False;
+    dxBarButton1.Action := actStopGrab;
+    Timer1.Enabled := False;
+  end;
+end;
+
 procedure TMainForm.StartGrab;
 begin
+  Status := Parsing;
   FCategoryInfoDS.W.TryAppend;
   FCategoryInfoDS.W.Caption.F.AsString := 'Промышленные соединители Han®';
   FCategoryInfoDS.W.HREF.F.AsString :=
@@ -308,32 +375,39 @@ begin
   TNotifyEventWrap.Create(PM.OnParseComplete, DoOnCategoryParseComplete);
 end;
 
+procedure TMainForm.StopGrab;
+begin
+  Status := Stoping;
+end;
+
 procedure TMainForm.Timer1Timer(Sender: TObject);
 var
   c: Char;
   S: string;
 begin
-  if cxLabel1.Caption = '' then
+  {
+    if cxLabel1.Caption = '' then
     Exit;
 
-  FCh := '-';
-  S := cxLabel1.Caption;
+    FCh := '-';
+    S := cxLabel1.Caption;
 
-  c := S.Chars[S.Length - 1];
-  case c of
+    c := S.Chars[S.Length - 1];
+    case c of
     '-':
-      FCh := '\';
+    FCh := '\';
     '\':
-      FCh := '|';
+    FCh := '|';
     '|':
-      FCh := '/';
+    FCh := '/';
     '/':
-      FCh := '-';
-  else
+    FCh := '-';
+    else
     S := S + '  ';
-  end;
-  S := S.Substring(0, S.Length - 1) + FCh;
-  cxLabel1.Caption := S;
+    end;
+    S := S.Substring(0, S.Length - 1) + FCh;
+    cxLabel1.Caption := S;
+  }
 end;
 
 end.

@@ -12,36 +12,52 @@ object MainForm: TMainForm
   Font.Style = []
   OldCreateOrder = False
   OnCreate = FormCreate
-  DesignSize = (
-    877
-    669)
   PixelsPerInch = 96
   TextHeight = 18
   object cxPageControl1: TcxPageControl
     Left = 0
-    Top = 72
+    Top = 28
     Width = 877
-    Height = 597
-    Anchors = [akLeft, akTop, akRight, akBottom]
+    Height = 641
+    Align = alClient
     TabOrder = 0
-    Properties.ActivePage = cxTabSheetCategory
+    Properties.ActivePage = cxTabSheetLog
     Properties.CustomButtons.Buttons = <>
-    ClientRectBottom = 593
+    ExplicitTop = 64
+    ExplicitHeight = 597
+    ClientRectBottom = 637
     ClientRectLeft = 4
     ClientRectRight = 873
     ClientRectTop = 29
+    object cxTabSheetLog: TcxTabSheet
+      Caption = #1046#1091#1088#1085#1072#1083' '#1089#1086#1073#1099#1090#1080#1081
+      ImageIndex = 2
+      ExplicitLeft = 56
+      ExplicitTop = 30
+      ExplicitHeight = 564
+      object cxMemo1: TcxMemo
+        Left = 0
+        Top = 0
+        Align = alClient
+        TabOrder = 0
+        ExplicitLeft = 264
+        ExplicitTop = 80
+        ExplicitWidth = 185
+        ExplicitHeight = 89
+        Height = 608
+        Width = 869
+      end
+    end
     object cxTabSheetCategory: TcxTabSheet
       Caption = #1050#1072#1090#1077#1075#1086#1088#1080#1080' '#1080' '#1087#1086#1076#1082#1072#1090#1077#1075#1086#1088#1080#1080
       ImageIndex = 0
+      ExplicitHeight = 564
     end
     object cxTabSheetProductList: TcxTabSheet
       Caption = #1057#1087#1080#1089#1082#1080' '#1090#1086#1074#1072#1088#1086#1074
       ImageIndex = 1
+      ExplicitHeight = 564
     end
-  end
-  object cxLabel1: TcxLabel
-    Left = 8
-    Top = 40
   end
   object dxBarManager1: TdxBarManager
     Font.Charset = DEFAULT_CHARSET
@@ -98,6 +114,10 @@ object MainForm: TMainForm
     object actStartGrab: TAction
       Caption = #1053#1072#1095#1072#1090#1100
       OnExecute = actStartGrabExecute
+    end
+    object actStopGrab: TAction
+      Caption = #1054#1089#1090#1072#1085#1086#1074#1080#1090#1100
+      OnExecute = actStopGrabExecute
     end
   end
   object Timer1: TTimer
