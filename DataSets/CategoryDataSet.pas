@@ -1,4 +1,4 @@
-unit CategoryInfoDataSet;
+unit CategoryDataSet;
 
 interface
 
@@ -7,12 +7,12 @@ uses
   ParserDataSet;
 
 type
-  TCategoryInfoW = class(TParserW)
+  TCategoryW = class(TParserW)
   private
     FCaption: TFieldWrap;
     FHREF: TFieldWrap;
     FParentID: TFieldWrap;
-    FDone: TFieldWrap;
+    FStatus: TFieldWrap;
     procedure Do_AfterInsert(Sender: TObject);
   public
     constructor Create(AOwner: TComponent); override;
@@ -22,17 +22,17 @@ type
     property Caption: TFieldWrap read FCaption;
     property HREF: TFieldWrap read FHREF;
     property ParentID: TFieldWrap read FParentID;
-    property Done: TFieldWrap read FDone;
+    property Status: TFieldWrap read FStatus;
   end;
 
-  TCategoryInfoDS = class(TParserDS)
+  TCategoryDS = class(TParserDS)
   private
-    FW: TCategoryInfoW;
+    FW: TCategoryW;
   protected
     function CreateWrap: TParserW; override;
   public
     constructor Create(AOwner: TComponent); override;
-    property W: TCategoryInfoW read FW;
+    property W: TCategoryW read FW;
   end;
 
 implementation
@@ -40,58 +40,58 @@ implementation
 uses
   Data.DB, System.SysUtils, NotifyEvents;
 
-constructor TCategoryInfoW.Create(AOwner: TComponent);
+constructor TCategoryW.Create(AOwner: TComponent);
 begin
   inherited;
   FParentID := TFieldWrap.Create(Self, 'ParentID', 'Код родителя');
   FHREF := TFieldWrap.Create(Self, 'HREF', 'Ссылка');
   FCaption := TFieldWrap.Create(Self, 'Caption', 'Наименование');
-  FDone := TFieldWrap.Create(Self, 'Done', 'Обработана');
+  FStatus := TFieldWrap.Create(Self, 'Status', 'Статус');
   TNotifyEventWrap.Create(AfterInsert, Do_AfterInsert);
 end;
 
-procedure TCategoryInfoW.Do_AfterInsert(Sender: TObject);
+procedure TCategoryW.Do_AfterInsert(Sender: TObject);
 begin
-  Done.F.AsInteger := 0;
+  Status.F.AsInteger := 0;
 end;
 
-procedure TCategoryInfoW.FilterByParentID(AParentID: Integer);
+procedure TCategoryW.FilterByParentID(AParentID: Integer);
 begin
   DataSet.Filter := Format('(%s = %d)', [ParentID.FieldName, AParentID]);
   DataSet.Filtered := True;
 end;
 
-procedure TCategoryInfoW.FilterByParentIDAndNotDone(AParentID: Integer);
+procedure TCategoryW.FilterByParentIDAndNotDone(AParentID: Integer);
 begin
   DataSet.Filter := Format('(%s = %d) and (%s = 0)',
-    [ParentID.FieldName, AParentID, Done.FieldName]);
+    [ParentID.FieldName, AParentID, Status.FieldName]);
   DataSet.Filtered := True;
 end;
 
-procedure TCategoryInfoW.FilterByRoot;
+procedure TCategoryW.FilterByRoot;
 begin
   DataSet.Filter := Format('(%s is null)', [ParentID.FieldName]);
   DataSet.Filtered := True;
 end;
 
-constructor TCategoryInfoDS.Create(AOwner: TComponent);
+constructor TCategoryDS.Create(AOwner: TComponent);
 begin
   inherited;
-  FW := ParserW as TCategoryInfoW;
+  FW := ParserW as TCategoryW;
 
   FieldDefs.Add(W.ID.FieldName, ftInteger);
   FieldDefs.Add(W.Caption.FieldName, ftWideString, 200);
-  FieldDefs.Add(W.FHREF.FieldName, ftWideString, 100);
+  FieldDefs.Add(W.FHREF.FieldName, ftWideString, 300);
   FieldDefs.Add(W.ParentID.FieldName, ftInteger);
-  FieldDefs.Add(W.Done.FieldName, ftInteger);
+  FieldDefs.Add(W.Status.FieldName, ftInteger);
 
   CreateDataSet;
 
 end;
 
-function TCategoryInfoDS.CreateWrap: TParserW;
+function TCategoryDS.CreateWrap: TParserW;
 begin
-  Result := TCategoryInfoW.Create(Self);
+  Result := TCategoryW.Create(Self);
 end;
 
 end.

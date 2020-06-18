@@ -42,7 +42,7 @@ type
 implementation
 
 uses
-  MyHTMLLoader, WebLoader, System.SysUtils, System.Variants, Winapi.ActiveX,
+  WebLoader, System.SysUtils, System.Variants, Winapi.ActiveX,
   System.Win.ComObj, Vcl.Forms;
 
 constructor TParserManager.Create(AOwner: TComponent; AURL: String;

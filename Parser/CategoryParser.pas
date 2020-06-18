@@ -3,14 +3,13 @@ unit CategoryParser;
 interface
 
 uses
-  MSHTML, System.Generics.Collections, CategoryInfoDataSet, FireDAC.Comp.Client,
-  System.Classes, WebLoaderInterface, DSWrap,
-  ParserInterface;
+  MSHTML, System.Generics.Collections, CategoryDataSet, FireDAC.Comp.Client,
+  System.Classes, WebLoaderInterface, DSWrap, ParserInterface;
 
 type
   TCategoryParser = class(TComponent, IParser)
   private
-    FCategoryInfoDS: TCategoryInfoDS;
+    FCategoryDS: TCategoryDS;
     function GetW: TDSWrap;
   public
     constructor Create(AOwner: TComponent); override;
@@ -27,12 +26,12 @@ uses
 constructor TCategoryParser.Create(AOwner: TComponent);
 begin
   inherited;
-  FCategoryInfoDS := TCategoryInfoDS.Create(Self);
+  FCategoryDS := TCategoryDS.Create(Self);
 end;
 
 function TCategoryParser.GetW: TDSWrap;
 begin
-  Result := FCategoryInfoDS.W;
+  Result := FCategoryDS.W;
 end;
 
 procedure TCategoryParser.Parse(AURL: string; AHTMLDocument: IHTMLDocument2;
@@ -48,7 +47,7 @@ begin
   Assert(AHTMLDocument <> nil);
   Assert(not AURL.IsEmpty);
 
-  FCategoryInfoDS.EmptyDataSet;
+  FCategoryDS.EmptyDataSet;
   A := TMyHTMLParser.Parse(AHTMLDocument.all, 'DIV', 'off-grid');
   if Length(A) = 0 then
     Exit;
@@ -67,7 +66,7 @@ begin
 
     AIHTMLAnchorElement := AHTMLElement as IHTMLAnchorElement;
 
-    with FCategoryInfoDS.W do
+    with FCategoryDS.W do
     begin
       TryAppend;
       ParentID.F.AsInteger := AParentID;

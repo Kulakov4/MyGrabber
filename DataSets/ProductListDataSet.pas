@@ -1,4 +1,4 @@
-unit ProductListInfoDataSet;
+unit ProductListDataSet;
 
 interface
 
@@ -6,60 +6,77 @@ uses
   ParserDataSet, DSWrap, System.Classes;
 
 type
-  TProductListInfoW = class(TParserW)
+  TProductListW = class(TParserW)
   private
     FHREF: TFieldWrap;
     FItemNumber: TFieldWrap;
     FCaption: TFieldWrap;
     FParentID: TFieldWrap;
+    FStatus: TFieldWrap;
+    procedure Do_AfterInsert(Sender: TObject);
   public
     constructor Create(AOwner: TComponent); override;
+    procedure FilterByNotDone;
     property HREF: TFieldWrap read FHREF;
     property ItemNumber: TFieldWrap read FItemNumber;
     property Caption: TFieldWrap read FCaption;
     property ParentID: TFieldWrap read FParentID;
+    property Status: TFieldWrap read FStatus;
   end;
 
-  TProductListInfoDS = class(TParserDS)
+  TProductListDS = class(TParserDS)
   private
-    FW: TProductListInfoW;
+    FW: TProductListW;
   protected
     function CreateWrap: TParserW; override;
   public
     constructor Create(AOwner: TComponent); override;
-    property W: TProductListInfoW read FW;
+    property W: TProductListW read FW;
   end;
 implementation
 
 uses
-  Data.DB;
+  Data.DB, NotifyEvents, System.SysUtils;
 
-constructor TProductListInfoW.Create(AOwner: TComponent);
+constructor TProductListW.Create(AOwner: TComponent);
 begin
   inherited;
   FParentID := TFieldWrap.Create(Self, 'ParentID', 'Код родителя');
   FHREF := TFieldWrap.Create(Self, 'HREF', 'Ссылка');
   FItemNumber := TFieldWrap.Create(Self, 'ItemNumber', 'Артикул');
   FCaption := TFieldWrap.Create(Self, 'Caption', 'Наименование');
+  FStatus := TFieldWrap.Create(Self, 'Status', 'Статус');
+  TNotifyEventWrap.Create(AfterInsert, Do_AfterInsert);
 end;
 
-constructor TProductListInfoDS.Create(AOwner: TComponent);
+procedure TProductListW.Do_AfterInsert(Sender: TObject);
+begin
+  Status.F.AsInteger := 0;
+end;
+
+procedure TProductListW.FilterByNotDone;
+begin
+  DataSet.Filter := Format('%s = %d', [Status.FieldName, 0]);
+end;
+
+constructor TProductListDS.Create(AOwner: TComponent);
 begin
   inherited;
-  FW := ParserW as TProductListInfoW;
+  FW := ParserW as TProductListW;
 
   FieldDefs.Add(W.ID.FieldName, ftInteger);
-  FieldDefs.Add(W.FHREF.FieldName, ftWideString, 100);
+  FieldDefs.Add(W.FHREF.FieldName, ftWideString, 300);
   FieldDefs.Add(W.ItemNumber.FieldName, ftWideString, 30);
-  FieldDefs.Add(W.Caption.FieldName, ftWideString, 100);
+  FieldDefs.Add(W.Caption.FieldName, ftWideString, 200);
   FieldDefs.Add(W.ParentID.FieldName, ftInteger);
+  FieldDefs.Add(W.Status.FieldName, ftInteger);
 
   CreateDataSet;
 end;
 
-function TProductListInfoDS.CreateWrap: TParserW;
+function TProductListDS.CreateWrap: TParserW;
 begin
-  Result := TProductListInfoW.Create(Self);
+  Result := TProductListW.Create(Self);
 end;
 
 end.

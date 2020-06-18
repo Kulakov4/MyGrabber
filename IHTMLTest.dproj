@@ -98,35 +98,39 @@
             <Form>MainForm</Form>
             <FormType>dfm</FormType>
         </DCCReference>
-        <DCCReference Include="MyHTMLParser.pas"/>
-        <DCCReference Include="WebLoaderInterface.pas"/>
-        <DCCReference Include="WebLoader.pas">
+        <DCCReference Include="Parser\MyHTMLParser.pas"/>
+        <DCCReference Include="Interfaces\WebLoaderInterface.pas"/>
+        <DCCReference Include="Web\WebLoader.pas">
             <Form>WebDM</Form>
             <FormType>dfm</FormType>
             <DesignClass>TDataModule</DesignClass>
         </DCCReference>
-        <DCCReference Include="CategoryParser.pas"/>
-        <DCCReference Include="CategoryInfoDataSet.pas"/>
-        <DCCReference Include="DSWrap.pas"/>
-        <DCCReference Include="GridFrame.pas">
+        <DCCReference Include="Parser\CategoryParser.pas"/>
+        <DCCReference Include="DataSets\CategoryDataSet.pas"/>
+        <DCCReference Include="Helpers\DSWrap.pas"/>
+        <DCCReference Include="Helpers\GridFrame.pas">
             <Form>frmGrid</Form>
             <FormType>dfm</FormType>
             <DesignClass>TFrame</DesignClass>
         </DCCReference>
-        <DCCReference Include="DragHelper.pas"/>
-        <DCCReference Include="ParserDataSet.pas"/>
-        <DCCReference Include="ProductListParser.pas"/>
-        <DCCReference Include="ProductListInfoDataSet.pas"/>
-        <DCCReference Include="MyHTMLLoader.pas"/>
-        <DCCReference Include="URLHelper.pas"/>
-        <DCCReference Include="GridSort.pas"/>
-        <DCCReference Include="NotifyEvents.pas"/>
-        <DCCReference Include="DBRecordHolder.pas"/>
-        <DCCReference Include="PageParser.pas"/>
-        <DCCReference Include="ParserManager.pas"/>
-        <DCCReference Include="ParserInterface.pas"/>
-        <DCCReference Include="PageParserInterface.pas"/>
+        <DCCReference Include="Helpers\DragHelper.pas"/>
+        <DCCReference Include="DataSets\ParserDataSet.pas"/>
+        <DCCReference Include="Parser\ProductListParser.pas"/>
+        <DCCReference Include="DataSets\ProductListDataSet.pas"/>
+        <DCCReference Include="Helpers\URLHelper.pas"/>
+        <DCCReference Include="Helpers\GridSort.pas"/>
+        <DCCReference Include="Helpers\NotifyEvents.pas"/>
+        <DCCReference Include="Helpers\DBRecordHolder.pas"/>
+        <DCCReference Include="Parser\PageParser.pas"/>
+        <DCCReference Include="Parser\ParserManager.pas"/>
+        <DCCReference Include="Interfaces\ParserInterface.pas"/>
+        <DCCReference Include="Interfaces\PageParserInterface.pas"/>
         <DCCReference Include="Status.pas"/>
+        <DCCReference Include="Parser\ProductParser.pas"/>
+        <DCCReference Include="DataSets\ProductsDataSet.pas"/>
+        <DCCReference Include="Helpers\StrHelper.pas"/>
+        <DCCReference Include="Helpers\TextRectHelper.pas"/>
+        <DCCReference Include="Helpers\DialogUnit.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>
@@ -168,6 +172,7 @@
                         <Operation>1</Operation>
                     </Platform>
                     <Platform Name="Win32">
+                        <RemoteDir>Contents\MacOS</RemoteDir>
                         <Operation>0</Operation>
                     </Platform>
                 </DeployClass>
@@ -303,11 +308,6 @@
                         <Operation>1</Operation>
                         <Extensions>.framework</Extensions>
                     </Platform>
-                    <Platform Name="OSX64">
-                        <RemoteDir>Contents\MacOS</RemoteDir>
-                        <Operation>1</Operation>
-                        <Extensions>.framework</Extensions>
-                    </Platform>
                     <Platform Name="Win32">
                         <Operation>0</Operation>
                     </Platform>
@@ -326,11 +326,6 @@
                         <Extensions>.dylib</Extensions>
                     </Platform>
                     <Platform Name="OSX32">
-                        <RemoteDir>Contents\MacOS</RemoteDir>
-                        <Operation>1</Operation>
-                        <Extensions>.dylib</Extensions>
-                    </Platform>
-                    <Platform Name="OSX64">
                         <RemoteDir>Contents\MacOS</RemoteDir>
                         <Operation>1</Operation>
                         <Extensions>.dylib</Extensions>
@@ -358,11 +353,6 @@
                         <Operation>1</Operation>
                         <Extensions>.dylib</Extensions>
                     </Platform>
-                    <Platform Name="OSX64">
-                        <RemoteDir>Contents\MacOS</RemoteDir>
-                        <Operation>1</Operation>
-                        <Extensions>.dylib</Extensions>
-                    </Platform>
                     <Platform Name="Win32">
                         <Operation>0</Operation>
                         <Extensions>.bpl</Extensions>
@@ -382,10 +372,6 @@
                         <Operation>0</Operation>
                     </Platform>
                     <Platform Name="OSX32">
-                        <RemoteDir>Contents\Resources\StartUp\</RemoteDir>
-                        <Operation>0</Operation>
-                    </Platform>
-                    <Platform Name="OSX64">
                         <RemoteDir>Contents\Resources\StartUp\</RemoteDir>
                         <Operation>0</Operation>
                     </Platform>
@@ -536,27 +522,15 @@
                         <RemoteDir>..\</RemoteDir>
                         <Operation>1</Operation>
                     </Platform>
-                    <Platform Name="OSX64">
-                        <RemoteDir>..\</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
                 </DeployClass>
                 <DeployClass Name="ProjectOSXInfoPList">
                     <Platform Name="OSX32">
                         <RemoteDir>Contents</RemoteDir>
                         <Operation>1</Operation>
                     </Platform>
-                    <Platform Name="OSX64">
-                        <RemoteDir>Contents</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
                 </DeployClass>
                 <DeployClass Name="ProjectOSXResource">
                     <Platform Name="OSX32">
-                        <RemoteDir>Contents\Resources</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="OSX64">
                         <RemoteDir>Contents\Resources</RemoteDir>
                         <Operation>1</Operation>
                     </Platform>
@@ -579,10 +553,6 @@
                         <Operation>1</Operation>
                     </Platform>
                     <Platform Name="OSX32">
-                        <RemoteDir>Contents\MacOS</RemoteDir>
-                        <Operation>1</Operation>
-                    </Platform>
-                    <Platform Name="OSX64">
                         <RemoteDir>Contents\MacOS</RemoteDir>
                         <Operation>1</Operation>
                     </Platform>

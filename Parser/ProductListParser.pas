@@ -3,14 +3,14 @@ unit ProductListParser;
 interface
 
 uses
-  FireDAC.Comp.Client, MSHTML, MyHTMLLoader, ProductListInfoDataSet,
-  System.Classes, ParserInterface, DSWrap;
+  FireDAC.Comp.Client, MSHTML, ProductListDataSet, System.Classes,
+  ParserInterface, DSWrap;
 
 type
   TProductListParser = class(TComponent, IParser)
   strict private
   private
-    FProductListInfoDS: TProductListInfoDS;
+    FProductListDS: TProductListDS;
     function GetW: TDSWrap;
   public
     constructor Create(AOwner: TComponent); override;
@@ -27,12 +27,12 @@ uses
 constructor TProductListParser.Create(AOwner: TComponent);
 begin
   inherited;
-  FProductListInfoDS := TProductListInfoDS.Create(Self);
+  FProductListDS := TProductListDS.Create(Self);
 end;
 
 function TProductListParser.GetW: TDSWrap;
 begin
-  Result := FProductListInfoDS.W;
+  Result := FProductListDS.W;
 end;
 
 procedure TProductListParser.Parse(AURL: string; AHTMLDocument: IHTMLDocument2;
@@ -44,7 +44,7 @@ var
   B: TArray<IHTMLElement>;
   C: TArray<IHTMLElement>;
 begin
-  FProductListInfoDS.EmptyDataSet;
+  FProductListDS.EmptyDataSet;
   A := TMyHTMLParser.Parse(AHTMLDocument.all, 'DIV',
     'row subcategory-list-row', 1);
 
@@ -61,7 +61,7 @@ begin
     C := TMyHTMLParser.Parse(AHTMLElement.all as IHTMLElementCollection, 'SPAN',
       'product-teaser__info', 1);
 
-    with FProductListInfoDS.W do
+    with FProductListDS.W do
     begin
       TryAppend;
       ParentID.F.AsInteger := AParentID;

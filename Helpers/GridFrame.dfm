@@ -13,8 +13,6 @@ object frmGrid: TfrmGrid
     TabOrder = 0
     LookAndFeel.Kind = lfFlat
     LookAndFeel.NativeStyle = False
-    ExplicitTop = 28
-    ExplicitHeight = 444
     object cxGridDBBandedTableView: TcxGridDBBandedTableView
       OnKeyDown = cxGridDBBandedTableViewKeyDown
       OnMouseDown = cxGridDBBandedTableViewMouseDown
