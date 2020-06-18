@@ -4,7 +4,7 @@ interface
 
 type
   IWebLoader = interface(IInterface)
-    function Load(const AURL: WideString): WideString; stdcall;
+    function Load(const AURL: String): String; stdcall;
   end;
 
 implementation

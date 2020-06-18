@@ -17,8 +17,9 @@ type
     FSingleInstance: TWebDM;
     { Private declarations }
   public
+    destructor Destroy; override;
     class function Instance: TWebDM; static;
-    function Load(const AURL: WideString): WideString; stdcall;
+    function Load(const AURL: String): String; stdcall;
     { Public declarations }
   end;
 
@@ -32,6 +33,11 @@ uses
 
 var
   Lock: TCriticalSection;
+
+destructor TWebDM.Destroy;
+begin
+  inherited;
+end;
 
 class function TWebDM.Instance: TWebDM;
 begin
@@ -47,7 +53,7 @@ begin
 
 end;
 
-function TWebDM.Load(const AURL: WideString): WideString;
+function TWebDM.Load(const AURL: String): String;
 begin
   Assert(AURL <> '');
   IdHTTP.HandleRedirects := true;

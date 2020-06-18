@@ -69,6 +69,7 @@ type
     procedure DoBeforeProductListLoad(Sender: TObject);
     procedure DoOnProductListParseComplete(Sender: TObject);
     procedure DoOnCategoryParseComplete(Sender: TObject);
+    procedure DoOnParseError(Sender: TObject);
     procedure DoOnProductParseComplete(Sender: TObject);
     function GetCategoryParser: TCategoryParser;
     function GetCategoryPath(AID: Integer): string;
@@ -149,7 +150,7 @@ begin
   if FProductListW.HREF.Locate(ANotifyObj.URL, []) then
   begin
     // Если результат парсинга успешен
-    if CategoryParser.W.RecordCount > 0 then
+    if ProductParser.W.RecordCount > 0 then
     begin
       FProductListW.TryEdit;
       FProductListW.Status.F.AsInteger := 1;
@@ -178,11 +179,12 @@ begin
       FCategoryW.TryPost;
     end;
   end;
-
-  // Тут уже можно запустить парсинг по товарам
-  if (FProductListW.DataSet.RecordCount > 0) and (not FProductParseStarted)
-  then
+  {
+    // Тут уже можно запустить парсинг по товарам
+    if (FProductListW.DataSet.RecordCount > 0) and (not FProductParseStarted)
+    then
     StartProductParsing(FProductListW.ID.F.AsInteger);
+  }
 end;
 
 procedure TMainForm.DoBeforeCategoryLoad(Sender: TObject);
@@ -221,6 +223,9 @@ begin
     FCategoryW.Status.F.AsInteger := 100;
     FCategoryW.TryPost;
   end;
+
+  if (FProductListW.DataSet.RecordCount > 0) then
+    StartProductParsing(FProductListW.ID.F.AsInteger);
 
   Exit;
 
@@ -286,6 +291,7 @@ begin
     PM := TParserManager.Create(Self, FCategoryW.HREF.F.AsString,
       ProductListParser, PageParser, FCategoryW.ID.F.AsInteger);
 
+    TNotifyEventWrap.Create(PM.OnError, DoOnParseError);
     TNotifyEventWrap.Create(PM.BeforeLoad, DoBeforeProductListLoad);
     TNotifyEventWrap.Create(PM.AfterParse, DoAfterProductListParse);
     TNotifyEventWrap.Create(PM.OnParseComplete, DoOnProductListParseComplete);
@@ -299,11 +305,18 @@ begin
   end;
 end;
 
+procedure TMainForm.DoOnParseError(Sender: TObject);
+var
+  AErrorNotify: TErrorNotify;
+begin
+  AErrorNotify := Sender as TErrorNotify;
+  AddToLog(Format('%s %s', [AErrorNotify.URL, AErrorNotify.ErrorMessage]));
+end;
+
 procedure TMainForm.DoOnProductParseComplete(Sender: TObject);
 begin
   // Если ещё есть необработанные записи о товарах
-  if (FProductListW.DataSet.RecordCount > 0)
-  then
+  if (FProductListW.DataSet.RecordCount > 0) then
     StartProductParsing(FProductListW.ID.F.AsInteger)
   else
     ShowMessage('Обработка всех товаров закончена');
@@ -439,8 +452,10 @@ begin
   FCategoryNode.ID := FCategoryW.ID.F.AsInteger;
   FCategoryNode.ParentID := FCategoryW.ParentID.F.AsInteger;
 
-  PM := TParserManager.Create(Self, FCategoryW.HREF.F.AsString,
-    CategoryParser, nil, FCategoryW.ID.F.AsInteger);
+  PM := TParserManager.Create(Self, FCategoryW.HREF.F.AsString, CategoryParser,
+    nil, FCategoryW.ID.F.AsInteger);
+
+  TNotifyEventWrap.Create(PM.OnError, DoOnParseError);
   TNotifyEventWrap.Create(PM.BeforeLoad, DoBeforeCategoryLoad);
   TNotifyEventWrap.Create(PM.AfterParse, DoAfterCategoryParse);
   TNotifyEventWrap.Create(PM.OnParseComplete, DoOnCategoryParseComplete);
@@ -463,6 +478,7 @@ begin
     [GetCategoryPath(FProductListW.ParentID.F.AsInteger) + '\' +
     FProductListW.Caption.F.AsString, 'получаем характеристики товара']));
 
+  TNotifyEventWrap.Create(PM.OnError, DoOnParseError);
   TNotifyEventWrap.Create(PM.BeforeLoad, DoBeforeProductLoad);
   TNotifyEventWrap.Create(PM.AfterParse, DoAfterProductParse);
   TNotifyEventWrap.Create(PM.OnParseComplete, DoOnProductParseComplete);

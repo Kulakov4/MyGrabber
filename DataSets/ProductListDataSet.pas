@@ -57,6 +57,7 @@ end;
 procedure TProductListW.FilterByNotDone;
 begin
   DataSet.Filter := Format('%s = %d', [Status.FieldName, 0]);
+  DataSet.Filtered := True;
 end;
 
 constructor TProductListDS.Create(AOwner: TComponent);

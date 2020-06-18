@@ -70,6 +70,8 @@ begin
   FieldDefs.Add(W.Image.FieldName, ftWideString, 100);
   FieldDefs.Add(W.FSpecification.FieldName, ftWideString, 100);
   FieldDefs.Add(W.Drawing.FieldName, ftWideString, 100);
+  FieldDefs.Add(W.Producer.FieldName, ftWideString, 50);
+  FieldDefs.Add(W.TemperatureRange.FieldName, ftWideString, 50);
   FieldDefs.Add(W.ParentID.FieldName, ftInteger);
 
   CreateDataSet;
