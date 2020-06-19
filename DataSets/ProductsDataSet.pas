@@ -13,16 +13,19 @@ type
     FImage: TFieldWrap;
     FSpecification: TFieldWrap;
     FDrawing: TFieldWrap;
+    FStatus: TFieldWrap;
     FParentID: TFieldWrap;
     FProducer: TFieldWrap;
     procedure Do_AfterInsert(Sender: TObject);
   public
     constructor Create(AOwner: TComponent); override;
+    procedure FilterByNotDone;
     property Description: TFieldWrap read FDescription;
     property TemperatureRange: TFieldWrap read FTemperatureRange;
     property Image: TFieldWrap read FImage;
     property Specification: TFieldWrap read FSpecification;
     property Drawing: TFieldWrap read FDrawing;
+    property Status: TFieldWrap read FStatus;
     property ParentID: TFieldWrap read FParentID;
     property Producer: TFieldWrap read FProducer;
   end;
@@ -40,7 +43,7 @@ type
 implementation
 
 uses
-  NotifyEvents, Data.DB;
+  NotifyEvents, Data.DB, System.SysUtils;
 
 constructor TProductW.Create(AOwner: TComponent);
 begin
@@ -52,12 +55,20 @@ begin
   FDrawing := TFieldWrap.Create(Self, 'Drawing', 'Чертёж');
   FProducer := TFieldWrap.Create(Self, 'Producer', 'Производитель');
   FParentID := TFieldWrap.Create(Self, 'ParentID', 'Код родителя');
+  FStatus := TFieldWrap.Create(Self, 'Status', 'Состояние');
   TNotifyEventWrap.Create(AfterInsert, Do_AfterInsert);
 end;
 
 procedure TProductW.Do_AfterInsert(Sender: TObject);
 begin
+  Status.F.AsInteger := 0;
   Producer.F.AsString := 'HARTING';
+end;
+
+procedure TProductW.FilterByNotDone;
+begin
+  DataSet.Filter := Format('%s = %d', [Status.FieldName, 0]);
+  DataSet.Filtered := True;
 end;
 
 constructor TProductsDS.Create(AOwner: TComponent);

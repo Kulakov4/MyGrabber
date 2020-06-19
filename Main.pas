@@ -13,7 +13,7 @@ uses
   GridFrame, CategoryDataSet, ProductListDataSet, dxBarBuiltInMenu,
   System.Actions, Vcl.ActnList, cxClasses, dxBar, cxPC, PageParser,
   CategoryParser, ProductListParser, cxLabel, System.Generics.Collections,
-  Status, ProductsDataSet, ProductParser;
+  Status, ProductsDataSet, ProductParser, ParserManager;
 
 type
   TCategoryNode = class(TObject)
@@ -50,43 +50,50 @@ type
     FCategoryParser: TCategoryParser;
     FCh: Char;
     FPageParser: TPageParser;
+    FParserManager: TParserManager;
     FProductsDS: TProductsDS;
     FProductListDS: TProductListDS;
     FProductListW: TProductListW;
     FProductListParser: TProductListParser;
     FProductParser: TProductParser;
-    FProductParseStarted: Boolean;
+    FProductW: TProductW;
     FStatus: TStatus;
+    FThreadStatus: TThreadStatus;
     FViewCategory: TfrmGrid;
     FViewProducts: TfrmGrid;
     FViewProductList: TfrmGrid;
     procedure AddToLog(const S: string);
     procedure DoAfterCategoryParse(Sender: TObject);
+    procedure DoAfterParse(Sender: TObject);
     procedure DoAfterProductParse(Sender: TObject);
     procedure DoAfterProductListParse(Sender: TObject);
-    procedure DoBeforeCategoryLoad(Sender: TObject);
-    procedure DoBeforeProductLoad(Sender: TObject);
-    procedure DoBeforeProductListLoad(Sender: TObject);
+    procedure DoBeforeLoad(Sender: TObject);
     procedure DoOnProductListParseComplete(Sender: TObject);
     procedure DoOnCategoryParseComplete(Sender: TObject);
+    procedure DoOnParseComplete(Sender: TObject);
     procedure DoOnParseError(Sender: TObject);
     procedure DoOnProductParseComplete(Sender: TObject);
     function GetCategoryParser: TCategoryParser;
     function GetCategoryPath(AID: Integer): string;
     function GetPageParser: TPageParser;
+    function GetParserManager: TParserManager;
     function GetProductListParser: TProductListParser;
     function GetProductParser: TProductParser;
     procedure SetStatus(const Value: TStatus);
+    procedure StartDocumentDownload;
     procedure StartGrab;
     procedure StartParsing(AID: Integer);
+    procedure StartProductListParsing(AID: Integer);
     procedure StartProductParsing(AID: Integer);
     procedure StopGrab;
+    procedure TryParseNextCategory(const ParentID: Integer);
     { Private declarations }
   protected
     property CategoryParser: TCategoryParser read GetCategoryParser;
     property PageParser: TPageParser read GetPageParser;
     property ProductListParser: TProductListParser read GetProductListParser;
   public
+    property ParserManager: TParserManager read GetParserManager;
     property ProductParser: TProductParser read GetProductParser;
     property Status: TStatus read FStatus write SetStatus;
     { Public declarations }
@@ -98,7 +105,7 @@ var
 implementation
 
 uses
-  WebLoader, FireDAC.Comp.Client, ParserManager, NotifyEvents, System.StrUtils;
+  WebLoader, FireDAC.Comp.Client, NotifyEvents, System.StrUtils;
 
 {$R *.dfm}
 
@@ -136,6 +143,11 @@ begin
       FCategoryW.TryPost;
     end;
   end;
+end;
+
+procedure TMainForm.DoAfterParse(Sender: TObject);
+begin
+  // TODO -cMM: TMainForm.DoAfterParse default body inserted
 end;
 
 procedure TMainForm.DoAfterProductParse(Sender: TObject);
@@ -187,99 +199,56 @@ begin
   }
 end;
 
-procedure TMainForm.DoBeforeCategoryLoad(Sender: TObject);
+procedure TMainForm.DoBeforeLoad(Sender: TObject);
 begin
-  AddToLog(Format('%s - %s %s', [GetCategoryPath(FCategoryNode.ID),
-    'поиск подкатегорий', FCh]));
-end;
+  case FThreadStatus of
+    tsCategory:
+      AddToLog(Format('%s - %s', [GetCategoryPath(FCategoryNode.ID),
+        'поиск подкатегорий']));
+    tsProductList:
+      AddToLog(Format('%s - %s', [GetCategoryPath(FCategoryNode.ID),
+        'поиск товаров']));
+    tsProducts:
+      ;
+    tsDownloadFiles:
+      ;
+  end;
 
-procedure TMainForm.DoBeforeProductLoad(Sender: TObject);
-begin
-
-end;
-
-procedure TMainForm.DoBeforeProductListLoad(Sender: TObject);
-begin
-  AddToLog(Format('%s - %s %s', [GetCategoryPath(FCategoryNode.ID),
-    'поиск товаров', FCh]));
 end;
 
 procedure TMainForm.DoOnProductListParseComplete(Sender: TObject);
-var
-  AParentID: Integer;
-  AID: Integer;
 begin
-  AID := 0;
+
   FCategoryW.DataSet.Filtered := False;
 
   // Переходим на ту категорию, содержимое которой парсили
   FCategoryW.ID.Locate(FCategoryNode.ID, [], True);
 
-  // Если для этой категории не были найдены товары
-  if FCategoryW.Status.F.AsInteger = 0 then
-  begin
-    // добавить эту категорию в список категорий с ошибками!
-    FCategoryW.TryEdit;
-    FCategoryW.Status.F.AsInteger := 100;
-    FCategoryW.TryPost;
-  end;
+  case FCategoryW.Status.F.AsInteger of
+    2:
+      // Если для этой категории были найдены товары
+      begin
+        Assert(FProductListW.DataSet.RecordCount > 0);
+        // Пробуем парсить товары
+        StartProductParsing(FProductListW.ID.F.AsInteger);
+      end;
+    0:
+      // Если для этой категории не были найдены товары
+      begin
+        // добавить эту категорию в список категорий с ошибками!
+        FCategoryW.TryEdit;
+        FCategoryW.Status.F.AsInteger := 100;
+        FCategoryW.TryPost;
 
-  if (FProductListW.DataSet.RecordCount > 0) then
-    StartProductParsing(FProductListW.ID.F.AsInteger);
-
-  Exit;
-
-  AParentID := FCategoryNode.ParentID;
-
-  FCategoryW.FilterByParentIDAndNotDone(AParentID);
-  try
-    // Если на этом уровне не все категории ещё обработаны
-    if FCategoryW.DataSet.RecordCount > 0 then
-      AID := FCategoryW.ID.F.AsInteger;
-  finally
-    FCategoryW.DataSet.Filtered := False;
-  end;
-
-  // Возвращаемся по дереву категорий к дочерним
-  while (AID = 0) and (AParentID > 0) do
-  begin
-    // Переходим на дочернюю категорию
-    FCategoryW.ID.Locate(AParentID, [], True);
-    // Дочерняя должна быть успешно обработана
-    Assert(FCategoryW.Status.F.AsInteger > 0);
-
-    AParentID := FCategoryW.ParentID.F.AsInteger;
-
-    // У дочерней нет дочерней
-    if AParentID = 0 then
-      break;
-
-    // Ищем, есть ли на этом уровне не обработанные категории
-    FCategoryW.FilterByParentIDAndNotDone(AParentID);
-    try
-      // Если на этом уровне не все категории ещё обработаны
-      if FCategoryW.DataSet.RecordCount > 0 then
-        AID := FCategoryW.ID.F.AsInteger;
-    finally
-      FCategoryW.DataSet.Filtered := False;
-    end;
-    if AID > 0 then
-      break;
-  end;
-
-  // Если нашли категрию которую ещё не парсили
-  if AID > 0 then
-    StartParsing(AID)
+        // Пробуем найти и начать парсинг следующей категории
+        TryParseNextCategory(FCategoryNode.ParentID);
+      end;
   else
-  begin
-    Status := Stoped;
-    ShowMessage('Парсинг окончен');
+    Assert(False);
   end;
 end;
 
 procedure TMainForm.DoOnCategoryParseComplete(Sender: TObject);
-var
-  PM: TParserManager;
 begin
   // Переходим на ту категорию, содержимое которой парсили
   FCategoryW.ID.Locate(FCategoryNode.ID, [], True);
@@ -288,13 +257,7 @@ begin
   if FCategoryW.Status.F.AsInteger = 0 then
   begin
     // Пробуем поискать список товаров в этой категории
-    PM := TParserManager.Create(Self, FCategoryW.HREF.F.AsString,
-      ProductListParser, PageParser, FCategoryW.ID.F.AsInteger);
-
-    TNotifyEventWrap.Create(PM.OnError, DoOnParseError);
-    TNotifyEventWrap.Create(PM.BeforeLoad, DoBeforeProductListLoad);
-    TNotifyEventWrap.Create(PM.AfterParse, DoAfterProductListParse);
-    TNotifyEventWrap.Create(PM.OnParseComplete, DoOnProductListParseComplete);
+    StartProductListParsing(FCategoryNode.ID);
   end
   else
   begin
@@ -303,6 +266,11 @@ begin
     // Начинаем парсинг этой дочерней категории
     StartParsing(FCategoryW.ID.F.AsInteger);
   end;
+end;
+
+procedure TMainForm.DoOnParseComplete(Sender: TObject);
+begin
+  // TODO -cMM: TMainForm.DoOnParseComplete default body inserted
 end;
 
 procedure TMainForm.DoOnParseError(Sender: TObject);
@@ -319,7 +287,8 @@ begin
   if (FProductListW.DataSet.RecordCount > 0) then
     StartProductParsing(FProductListW.ID.F.AsInteger)
   else
-    ShowMessage('Обработка всех товаров закончена');
+    // Пробуем найти и начать парсинг следующей категории
+    TryParseNextCategory(FCategoryNode.ParentID);
 end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
@@ -345,7 +314,10 @@ begin
   FProductListW.FilterByNotDone;
   FViewProductList.DSWrap := FProductListDS.W;
 
+  // Товары
   FProductsDS := TProductsDS.Create(Self);
+  FProductW := TProductW.Create(FProductsDS.W.AddClone(''));
+  FProductW.FilterByNotDone;
   FViewProducts.DSWrap := FProductsDS.W;
 
   FCategoryNode := TCategoryNode.Create;
@@ -381,6 +353,19 @@ begin
     FPageParser := TPageParser.Create(Self);
 
   Result := FPageParser;
+end;
+
+function TMainForm.GetParserManager: TParserManager;
+begin
+  if FParserManager = nil then
+  begin
+    FParserManager := TParserManager.Create(Self);
+    TNotifyEventWrap.Create(FParserManager.OnError, DoOnParseError);
+    TNotifyEventWrap.Create(FParserManager.BeforeLoad, DoBeforeLoad);
+    TNotifyEventWrap.Create(FParserManager.AfterParse, DoAfterParse);
+    TNotifyEventWrap.Create(FParserManager.OnParseComplete, DoOnParseComplete);
+  end;
+  Result := FParserManager;
 end;
 
 function TMainForm.GetProductListParser: TProductListParser;
@@ -425,6 +410,11 @@ begin
   end;
 end;
 
+procedure TMainForm.StartDocumentDownload;
+begin
+
+end;
+
 procedure TMainForm.StartGrab;
 begin
   Status := Parsing;
@@ -461,6 +451,22 @@ begin
   TNotifyEventWrap.Create(PM.OnParseComplete, DoOnCategoryParseComplete);
 end;
 
+procedure TMainForm.StartProductListParsing(AID: Integer);
+var
+  PM: TParserManager;
+begin
+  // Переходим на ту категорию, содержимое которой парсили
+  FCategoryW.ID.Locate(AID, [], True);
+
+  PM := TParserManager.Create(Self, FCategoryW.HREF.F.AsString,
+    ProductListParser, PageParser, FCategoryW.ID.F.AsInteger);
+
+  TNotifyEventWrap.Create(PM.OnError, DoOnParseError);
+  TNotifyEventWrap.Create(PM.BeforeLoad, DoBeforeProductListLoad);
+  TNotifyEventWrap.Create(PM.AfterParse, DoAfterProductListParse);
+  TNotifyEventWrap.Create(PM.OnParseComplete, DoOnProductListParseComplete);
+end;
+
 procedure TMainForm.StartProductParsing(AID: Integer);
 var
   PM: TParserManager;
@@ -495,7 +501,16 @@ procedure TMainForm.Timer1Timer(Sender: TObject);
   c: Char;
   S: string;
 }
+var
+  PM: TParserManager;
 begin
+  if FFinished.Count > 0 then
+  begin
+    PM := FFinished[0];
+    FFinished.Delete(0);
+    FreeAndNil(PM);
+  end;
+
   {
     if cxLabel1.Caption = '' then
     Exit;
@@ -519,6 +534,59 @@ begin
     S := S.Substring(0, S.Length - 1) + FCh;
     cxLabel1.Caption := S;
   }
+end;
+
+procedure TMainForm.TryParseNextCategory(const ParentID: Integer);
+var
+  AID: Integer;
+  AParentID: Integer;
+begin
+  AID := 0;
+  AParentID := ParentID;
+  FCategoryW.FilterByParentIDAndNotDone(AParentID);
+  try
+    // Если на этом уровне не все категории ещё обработаны
+    if FCategoryW.DataSet.RecordCount > 0 then
+      AID := FCategoryW.ID.F.AsInteger;
+  finally
+    FCategoryW.DataSet.Filtered := False;
+  end;
+
+  // Возвращаемся по дереву категорий к дочерним
+  while (AID = 0) and (AParentID > 0) do
+  begin
+    // Переходим на дочернюю категорию
+    FCategoryW.ID.Locate(AParentID, [], True);
+    // Дочерняя должна быть успешно обработана
+    Assert(FCategoryW.Status.F.AsInteger > 0);
+
+    AParentID := FCategoryW.ParentID.F.AsInteger;
+
+    // У дочерней нет дочерней
+    if AParentID = 0 then
+      break;
+
+    // Ищем, есть ли на этом уровне не обработанные категории
+    FCategoryW.FilterByParentIDAndNotDone(AParentID);
+    try
+      // Если на этом уровне не все категории ещё обработаны
+      if FCategoryW.DataSet.RecordCount > 0 then
+        AID := FCategoryW.ID.F.AsInteger;
+    finally
+      FCategoryW.DataSet.Filtered := False;
+    end;
+    if AID > 0 then
+      break;
+  end;
+
+  // Если нашли категрию которую ещё не парсили
+  if AID > 0 then
+    StartParsing(AID)
+  else
+  begin
+    Status := Stoped;
+    ShowMessage('Парсинг окончен');
+  end;
 end;
 
 end.

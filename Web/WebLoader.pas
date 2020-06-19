@@ -19,7 +19,9 @@ type
   public
     destructor Destroy; override;
     class function Instance: TWebDM; static;
-    function Load(const AURL: String): String; stdcall;
+    function Load(const AURL: String): String; overload; stdcall;
+    procedure Load(const AURL: String; AResponseContent: TStream); overload;
+        stdcall;
     { Public declarations }
   end;
 
@@ -59,6 +61,13 @@ begin
   IdHTTP.HandleRedirects := true;
   // Загружаем в html как Unicode строку
   Result := IdHTTP.Get(AURL);
+end;
+
+procedure TWebDM.Load(const AURL: String; AResponseContent: TStream);
+begin
+  Assert(AURL <> '');
+  IdHTTP.HandleRedirects := true;
+  IdHTTP.Get(AURL, AResponseContent);
 end;
 
 initialization

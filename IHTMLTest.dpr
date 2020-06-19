@@ -27,7 +27,8 @@ uses
   ProductsDataSet in 'DataSets\ProductsDataSet.pas',
   StrHelper in 'Helpers\StrHelper.pas',
   TextRectHelper in 'Helpers\TextRectHelper.pas',
-  DialogUnit in 'Helpers\DialogUnit.pas';
+  DialogUnit in 'Helpers\DialogUnit.pas',
+  DownloadManager in 'Web\DownloadManager.pas';
 
 {$R *.res}
 

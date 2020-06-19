@@ -43,9 +43,9 @@ type
     procedure OnThreadTerminate(Sender: TObject);
   protected
   public
-    constructor Create(AOwner: TComponent; AURL: String; AParser: IParser;
-      APageParser: IPageParser; AParentID: Integer); reintroduce;
     destructor Destroy; override;
+    procedure Start(const AURL: String; AParentID: Integer; AParser: IParser;
+        APageParser: IPageParser);
     property OnParseComplete: TNotifyEventsEx read GetOnParseComplete;
     property OnError: TNotifyEventsEx read GetOnError;
     property AfterParse: TNotifyEventsEx read GetAfterParse;
@@ -57,27 +57,6 @@ implementation
 uses
   System.SysUtils, System.Variants, Winapi.ActiveX,
   System.Win.ComObj, Vcl.Forms;
-
-constructor TParserManager.Create(AOwner: TComponent; AURL: String;
-  AParser: IParser; APageParser: IPageParser; AParentID: Integer);
-var
-  myThread: TThread;
-begin
-  inherited Create(AOwner);
-  Assert(AURL.Length > 0);
-  Assert(AParentID > 0);
-  FParser := AParser;
-  FPageParser := APageParser;
-
-  myThread := TThread.CreateAnonymousThread(
-    procedure
-    begin
-      Main(AURL, AParentID);
-    end);
-  myThread.OnTerminate := OnThreadTerminate;
-  myThread.FreeOnTerminate := True;
-  myThread.Start;
-end;
 
 destructor TParserManager.Destroy;
 begin
@@ -145,10 +124,6 @@ begin
         begin
           NotifyBeforeLoad;
         end);
-
-      if APageURL = 'https://b2b.harting.com/ebusiness/ru/Han-3A-%D0%BA%D0%BE%D0%B6%D1%83%D1%85-%D0%B1%D0%BB%D0%BE%D1%87%D0%BD%D1%8B%D0%B9-%D1%83%D0%B3%D0%BB%D0%BE%D0%B2%D0%BE%D0%B9/09200030811?detail=true&sewConfig=false'
-      then
-        beep;
 
       // Загружаем страницу
       AHTML := TWebDM.Instance.Load(APageURL);
@@ -229,6 +204,26 @@ procedure TParserManager.OnThreadTerminate(Sender: TObject);
 begin
   if FOnParseComplete <> nil then
     FOnParseComplete.CallEventHandlers(Self);
+end;
+
+procedure TParserManager.Start(const AURL: String; AParentID: Integer; AParser:
+    IParser; APageParser: IPageParser);
+var
+  myThread: TThread;
+begin
+  Assert(AURL.Length > 0);
+  Assert(AParentID > 0);
+  FParser := AParser;
+  FPageParser := APageParser;
+
+  myThread := TThread.CreateAnonymousThread(
+    procedure
+    begin
+      Main(AURL, AParentID);
+    end);
+  myThread.OnTerminate := OnThreadTerminate;
+  myThread.FreeOnTerminate := True;
+  myThread.Start;
 end;
 
 end.
