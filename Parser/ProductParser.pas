@@ -22,7 +22,7 @@ type
 implementation
 
 uses
-  System.Variants;
+  System.Variants, System.SysUtils;
 
 constructor TProductParser.Create(AOwner: TComponent);
 begin
@@ -38,12 +38,15 @@ end;
 procedure TProductParser.Parse(AURL: string; AHTMLDocument: IHTMLDocument2;
   AParentID: Integer);
 var
-  A: TArray<IHTMLElement>;
+  A: IHTMLElement;
+  AList: TArray<IHTMLElement>;
   ADataDownload: OleVariant;
   ADIV: TArray<IHTMLElement>;
-  AHTMLElement: IHTMLElement;
+  AFileName: string;
+  LI: IHTMLElement;
   AHTMLImgElement: IHTMLImgElement;
   AIMG: TArray<IHTMLElement>;
+  B: TArray<IHTMLElement>;
   LIList: TArray<IHTMLElement>;
   P: TArray<IHTMLElement>;
   SPAN: TArray<IHTMLElement>;
@@ -65,7 +68,7 @@ begin
       'product-image-block__image', 1);
 
     AIMG := TMyHTMLParser.Parse(ADIV[0].all as IHTMLElementCollection, 'IMG',
-      ' product-image-block__image-element');
+      'product-image-block__image-element');
 
     // Если нашли хотя-бы одну картинку
     if Length(AIMG) > 0 then
@@ -74,6 +77,15 @@ begin
       FProductsDS.W.Image.F.AsString := AHTMLImgElement.src;
     end;
 
+    // Получаем блок с артикулом
+    P := TMyHTMLParser.Parse(AHTMLDocument.all as IHTMLElementCollection, 'P',
+      'product-info__part-number-label', 1);
+
+    B := TMyHTMLParser.Parse(P[0].all as IHTMLElementCollection, 'B',
+      'product-info__part-number', 1);
+
+    FProductsDS.W.ItemNumber.F.AsString := B[0].innerText;
+
     // Получаем список загрузки. Он должен быть один
     UL := TMyHTMLParser.Parse(AHTMLDocument.all, 'UL',
       'downloads-list-block', 1);
@@ -81,22 +93,35 @@ begin
     // Получаем три элемента списка
     LIList := TMyHTMLParser.Parse(UL[0].all as IHTMLElementCollection, 'LI',
       'downloads-list-item-block');
-    for AHTMLElement in LIList do
+    for LI in LIList do
     begin
       // Ищем ссылку на документацию
-      A := TMyHTMLParser.Parse(AHTMLElement.all as IHTMLElementCollection, 'A',
-        'downloads-format-icons__element', 1);
+      AList := TMyHTMLParser.Parse(LI.all as IHTMLElementCollection, 'A',
+        'downloads-format-icons__element');
 
-      ADataDownload := A[0].getAttribute('data-download', 0);
-      if not VarIsNull(ADataDownload) then
+      for A in AList do
       begin
-        SPAN := TMyHTMLParser.Parse(AHTMLElement.all as IHTMLElementCollection,
-          'SPAN', 'downloads-list-item-block__titel', 1);
+        ADataDownload := A.getAttribute('data-download', 0);
+        if VarIsNull(ADataDownload) then
+          Continue;
+
+        AFileName := ADataDownload;
+
+        // На мужну только PDF-ки
+        if not AFileName.EndsWith('.pdf', True) then
+          Continue;
+
+        SPAN := TMyHTMLParser.Parse(LI.all as IHTMLElementCollection, 'SPAN',
+          'downloads-list-item-block__titel', 1);
+
         if SPAN[0].innerText = 'Документация' then
-          FProductsDS.W.Specification.F.AsString := ADataDownload;
+          FProductsDS.W.Specification.F.AsString := AFileName;
+
         if SPAN[0].innerText = 'Чертёж' then
-          FProductsDS.W.Drawing.F.AsString := ADataDownload;
+          FProductsDS.W.Drawing.F.AsString := AFileName;
+
       end;
+
     end;
     FProductsDS.W.ParentID.F.AsInteger := AParentID;
     FProductsDS.W.TryPost;

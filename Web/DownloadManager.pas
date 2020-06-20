@@ -3,25 +3,26 @@ unit DownloadManager;
 interface
 
 uses
-  System.Classes, NotifyEvents;
+  System.Classes, NotifyEvents, WebLoader2;
 
 type
   TDownloadManager = class(TComponent)
   private
     FOnDownloadComplete: TNotifyEventsEx;
+    FWebLoader: TWebLoader2;
     function GetOnDownloadComplete: TNotifyEventsEx;
     procedure Main(const AURL, AFileName: String);
     procedure OnThreadTerminate(Sender: TObject);
   public
     destructor Destroy; override;
-    procedure Download(const AURL, AFileName: String);
+    procedure StartDownload(const AURL, AFileName: String);
     property OnDownloadComplete: TNotifyEventsEx read GetOnDownloadComplete;
   end;
 
 implementation
 
 uses
-  WebLoader, System.SysUtils;
+  System.SysUtils;
 
 destructor TDownloadManager.Destroy;
 begin
@@ -31,10 +32,13 @@ begin
   inherited;
 end;
 
-procedure TDownloadManager.Download(const AURL, AFileName: String);
+procedure TDownloadManager.StartDownload(const AURL, AFileName: String);
 var
   myThread: TThread;
 begin
+  if FWebLoader = nil then
+    FWebLoader := TWebLoader2.Create(Self);
+
   myThread := TThread.CreateAnonymousThread(
     procedure
     begin
@@ -60,7 +64,8 @@ begin
   AMemoryStream := TMemoryStream.Create;
   try
     // Загружаем файл в память
-    TWebDM.Instance.Load(AURL, AMemoryStream);
+    //    TWebDM.Instance.Load(AURL, AMemoryStream);
+    FWebLoader.Load(AURL, AMemoryStream);
     // Сохраняем данные в файл
     AMemoryStream.SaveToFile(AFileName);
   finally

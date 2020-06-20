@@ -28,7 +28,9 @@ uses
   StrHelper in 'Helpers\StrHelper.pas',
   TextRectHelper in 'Helpers\TextRectHelper.pas',
   DialogUnit in 'Helpers\DialogUnit.pas',
-  DownloadManager in 'Web\DownloadManager.pas';
+  DownloadManager in 'Web\DownloadManager.pas',
+  DownloadManagerEx in 'Web\DownloadManagerEx.pas',
+  WebLoader2 in 'Web\WebLoader2.pas';
 
 {$R *.res}
 

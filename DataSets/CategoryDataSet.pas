@@ -19,6 +19,7 @@ type
     procedure FilterByParentID(AParentID: Integer);
     procedure FilterByParentIDAndNotDone(AParentID: Integer);
     procedure FilterByRoot;
+    procedure SetStatus(AStatus: Integer);
     property Caption: TFieldWrap read FCaption;
     property HREF: TFieldWrap read FHREF;
     property ParentID: TFieldWrap read FParentID;
@@ -72,6 +73,13 @@ procedure TCategoryW.FilterByRoot;
 begin
   DataSet.Filter := Format('(%s is null)', [ParentID.FieldName]);
   DataSet.Filtered := True;
+end;
+
+procedure TCategoryW.SetStatus(AStatus: Integer);
+begin
+  TryEdit;
+  Status.F.AsInteger := AStatus;
+  TryPost;
 end;
 
 constructor TCategoryDS.Create(AOwner: TComponent);

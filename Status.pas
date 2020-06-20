@@ -3,7 +3,7 @@ unit Status;
 interface
 
 Type
-  TStatus = (Parsing, Stoping, Stoped);
+  TStatus = (Runing, Stoping, Stoped);
   TThreadStatus = (tsCategory, tsProductList, tsProducts, tsDownloadFiles);
 
 implementation

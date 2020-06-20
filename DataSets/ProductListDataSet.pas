@@ -17,6 +17,7 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     procedure FilterByNotDone;
+    procedure SetStatus(AStatus: Integer);
     property HREF: TFieldWrap read FHREF;
     property ItemNumber: TFieldWrap read FItemNumber;
     property Caption: TFieldWrap read FCaption;
@@ -58,6 +59,13 @@ procedure TProductListW.FilterByNotDone;
 begin
   DataSet.Filter := Format('%s = %d', [Status.FieldName, 0]);
   DataSet.Filtered := True;
+end;
+
+procedure TProductListW.SetStatus(AStatus: Integer);
+begin
+  TryEdit;
+  Status.F.AsInteger := AStatus;
+  TryPost;
 end;
 
 constructor TProductListDS.Create(AOwner: TComponent);

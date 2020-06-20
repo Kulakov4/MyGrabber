@@ -13,6 +13,7 @@ type
     FImage: TFieldWrap;
     FSpecification: TFieldWrap;
     FDrawing: TFieldWrap;
+    FItemNumber: TFieldWrap;
     FStatus: TFieldWrap;
     FParentID: TFieldWrap;
     FProducer: TFieldWrap;
@@ -20,11 +21,13 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     procedure FilterByNotDone;
+    procedure SetStatus(AStatus: Integer);
     property Description: TFieldWrap read FDescription;
     property TemperatureRange: TFieldWrap read FTemperatureRange;
     property Image: TFieldWrap read FImage;
     property Specification: TFieldWrap read FSpecification;
     property Drawing: TFieldWrap read FDrawing;
+    property ItemNumber: TFieldWrap read FItemNumber;
     property Status: TFieldWrap read FStatus;
     property ParentID: TFieldWrap read FParentID;
     property Producer: TFieldWrap read FProducer;
@@ -48,6 +51,7 @@ uses
 constructor TProductW.Create(AOwner: TComponent);
 begin
   inherited;
+  FItemNumber := TFieldWrap.Create(Self, 'ItemNumber', 'Артикул');
   FDescription := TFieldWrap.Create(Self, 'Description', 'Описание');
   FTemperatureRange := TFieldWrap.Create(Self, 'TemperatureRange', 'Температурный диапазон');
   FImage := TFieldWrap.Create(Self, 'Image', 'Изображение');
@@ -71,19 +75,28 @@ begin
   DataSet.Filtered := True;
 end;
 
+procedure TProductW.SetStatus(AStatus: Integer);
+begin
+  TryEdit;
+  Status.F.AsInteger := AStatus;
+  TryPost;
+end;
+
 constructor TProductsDS.Create(AOwner: TComponent);
 begin
   inherited;
   FW := ParserW as TProductW;
 
   FieldDefs.Add(W.ID.FieldName, ftInteger);
-  FieldDefs.Add(W.Description.FieldName, ftWideString, 200);
-  FieldDefs.Add(W.Image.FieldName, ftWideString, 100);
-  FieldDefs.Add(W.FSpecification.FieldName, ftWideString, 100);
-  FieldDefs.Add(W.Drawing.FieldName, ftWideString, 100);
+  FieldDefs.Add(W.ItemNumber.FieldName, ftWideString, 50);
+  FieldDefs.Add(W.Description.FieldName, ftWideString, 500);
+  FieldDefs.Add(W.Image.FieldName, ftWideString, 500);
+  FieldDefs.Add(W.FSpecification.FieldName, ftWideString, 500);
+  FieldDefs.Add(W.Drawing.FieldName, ftWideString, 500);
   FieldDefs.Add(W.Producer.FieldName, ftWideString, 50);
   FieldDefs.Add(W.TemperatureRange.FieldName, ftWideString, 50);
   FieldDefs.Add(W.ParentID.FieldName, ftInteger);
+  FieldDefs.Add(W.Status.FieldName, ftInteger);
 
   CreateDataSet;
 end;
