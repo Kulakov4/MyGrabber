@@ -10,13 +10,15 @@ type
   private
     FDescription: TFieldWrap;
     FTemperatureRange: TFieldWrap;
-    FImage: TFieldWrap;
-    FSpecification: TFieldWrap;
-    FDrawing: TFieldWrap;
+    FImageURL: TFieldWrap;
+    FSpecificationURL: TFieldWrap;
+    FDrawingURL: TFieldWrap;
+    FDrawingFileName: TFieldWrap;
+    FImageFileName: TFieldWrap;
     FItemNumber: TFieldWrap;
     FStatus: TFieldWrap;
     FParentID: TFieldWrap;
-    FProducer: TFieldWrap;
+    FSpecificationFileName: TFieldWrap;
     procedure Do_AfterInsert(Sender: TObject);
   public
     constructor Create(AOwner: TComponent); override;
@@ -24,13 +26,15 @@ type
     procedure SetStatus(AStatus: Integer);
     property Description: TFieldWrap read FDescription;
     property TemperatureRange: TFieldWrap read FTemperatureRange;
-    property Image: TFieldWrap read FImage;
-    property Specification: TFieldWrap read FSpecification;
-    property Drawing: TFieldWrap read FDrawing;
+    property ImageURL: TFieldWrap read FImageURL;
+    property SpecificationURL: TFieldWrap read FSpecificationURL;
+    property DrawingURL: TFieldWrap read FDrawingURL;
+    property DrawingFileName: TFieldWrap read FDrawingFileName;
+    property ImageFileName: TFieldWrap read FImageFileName;
     property ItemNumber: TFieldWrap read FItemNumber;
     property Status: TFieldWrap read FStatus;
     property ParentID: TFieldWrap read FParentID;
-    property Producer: TFieldWrap read FProducer;
+    property SpecificationFileName: TFieldWrap read FSpecificationFileName;
   end;
 
   TProductsDS = class(TParserDS)
@@ -54,10 +58,12 @@ begin
   FItemNumber := TFieldWrap.Create(Self, 'ItemNumber', 'Артикул');
   FDescription := TFieldWrap.Create(Self, 'Description', 'Описание');
   FTemperatureRange := TFieldWrap.Create(Self, 'TemperatureRange', 'Температурный диапазон');
-  FImage := TFieldWrap.Create(Self, 'Image', 'Изображение');
-  FSpecification := TFieldWrap.Create(Self, 'Specification', 'Спецификация');
-  FDrawing := TFieldWrap.Create(Self, 'Drawing', 'Чертёж');
-  FProducer := TFieldWrap.Create(Self, 'Producer', 'Производитель');
+  FImageURL := TFieldWrap.Create(Self, 'ImageURL', 'URL Изображения');
+  FImageFileName := TFieldWrap.Create(Self, 'ImageFileName', 'Файл изображения');
+  FSpecificationURL := TFieldWrap.Create(Self, 'SpecificationURL', 'URL спецификации');
+  FSpecificationFileName := TFieldWrap.Create(Self, 'SpecificationFileName', 'Файл спецификации');
+  FDrawingURL := TFieldWrap.Create(Self, 'DrawingURL', 'URL чертёж');
+  FDrawingFileName := TFieldWrap.Create(Self, 'DrawingFileName', 'Файл чертёжа');
   FParentID := TFieldWrap.Create(Self, 'ParentID', 'Код родителя');
   FStatus := TFieldWrap.Create(Self, 'Status', 'Состояние');
   TNotifyEventWrap.Create(AfterInsert, Do_AfterInsert);
@@ -66,7 +72,6 @@ end;
 procedure TProductW.Do_AfterInsert(Sender: TObject);
 begin
   Status.F.AsInteger := 0;
-  Producer.F.AsString := 'HARTING';
 end;
 
 procedure TProductW.FilterByNotDone;
@@ -90,10 +95,12 @@ begin
   FieldDefs.Add(W.ID.FieldName, ftInteger);
   FieldDefs.Add(W.ItemNumber.FieldName, ftWideString, 50);
   FieldDefs.Add(W.Description.FieldName, ftWideString, 500);
-  FieldDefs.Add(W.Image.FieldName, ftWideString, 500);
-  FieldDefs.Add(W.FSpecification.FieldName, ftWideString, 500);
-  FieldDefs.Add(W.Drawing.FieldName, ftWideString, 500);
-  FieldDefs.Add(W.Producer.FieldName, ftWideString, 50);
+  FieldDefs.Add(W.ImageURL.FieldName, ftWideString, 500);
+  FieldDefs.Add(W.ImageFileName.FieldName, ftWideString, 50);
+  FieldDefs.Add(W.FSpecificationURL.FieldName, ftWideString, 500);
+  FieldDefs.Add(W.FSpecificationFileName.FieldName, ftWideString, 50);
+  FieldDefs.Add(W.DrawingURL.FieldName, ftWideString, 500);
+  FieldDefs.Add(W.DrawingFileName.FieldName, ftWideString, 50);
   FieldDefs.Add(W.TemperatureRange.FieldName, ftWideString, 50);
   FieldDefs.Add(W.ParentID.FieldName, ftInteger);
   FieldDefs.Add(W.Status.FieldName, ftInteger);

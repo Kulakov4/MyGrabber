@@ -28,6 +28,7 @@ type
     FAfterParse: TNotifyEventsEx;
     FBeforeLoad: TNotifyEventsEx;
     FErrorNotify: TErrorNotify;
+    FParentID: Integer;
     FNotifyObj: TNotifyObj;
     FOnError: TNotifyEventsEx;
     FPageParser: IPageParser;
@@ -50,6 +51,7 @@ type
     property OnError: TNotifyEventsEx read GetOnError;
     property AfterParse: TNotifyEventsEx read GetAfterParse;
     property BeforeLoad: TNotifyEventsEx read GetBeforeLoad;
+    property ParentID: Integer read FParentID;
   end;
 
 implementation
@@ -215,6 +217,7 @@ begin
   Assert(AParentID > 0);
   FParser := AParser;
   FPageParser := APageParser;
+  FParentID := AParentID;
 
   myThread := TThread.CreateAnonymousThread(
     procedure

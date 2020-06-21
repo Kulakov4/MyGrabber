@@ -74,7 +74,7 @@ begin
     if Length(AIMG) > 0 then
     begin
       AHTMLImgElement := AIMG[0] as IHTMLImgElement;
-      FProductsDS.W.Image.F.AsString := AHTMLImgElement.src;
+      FProductsDS.W.ImageURL.F.AsString := AHTMLImgElement.src;
     end;
 
     // Получаем блок с артикулом
@@ -115,10 +115,10 @@ begin
           'downloads-list-item-block__titel', 1);
 
         if SPAN[0].innerText = 'Документация' then
-          FProductsDS.W.Specification.F.AsString := AFileName;
+          FProductsDS.W.SpecificationURL.F.AsString := AFileName;
 
         if SPAN[0].innerText = 'Чертёж' then
-          FProductsDS.W.Drawing.F.AsString := AFileName;
+          FProductsDS.W.DrawingURL.F.AsString := AFileName;
 
       end;
 

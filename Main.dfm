@@ -51,6 +51,10 @@ object MainForm: TMainForm
       Caption = #1058#1086#1074#1072#1088#1099
       ImageIndex = 3
     end
+    object cxTabSheetFinal: TcxTabSheet
+      Caption = #1056#1077#1079#1091#1083#1100#1090#1072#1090
+      ImageIndex = 4
+    end
   end
   object dxBarManager1: TdxBarManager
     Font.Charset = DEFAULT_CHARSET
@@ -112,10 +116,5 @@ object MainForm: TMainForm
       Caption = #1054#1089#1090#1072#1085#1086#1074#1080#1090#1100
       OnExecute = actStopGrabExecute
     end
-  end
-  object Timer1: TTimer
-    OnTimer = Timer1Timer
-    Left = 176
-    Top = 40
   end
 end

@@ -134,6 +134,9 @@
         <DCCReference Include="Web\DownloadManager.pas"/>
         <DCCReference Include="Web\DownloadManagerEx.pas"/>
         <DCCReference Include="Web\WebLoader2.pas"/>
+        <DCCReference Include="WebGrabber.pas"/>
+        <DCCReference Include="Interfaces\LogInterface.pas"/>
+        <DCCReference Include="DataSets\FinalDataSet.pas"/>
         <BuildConfiguration Include="Release">
             <Key>Cfg_2</Key>
             <CfgParent>Base</CfgParent>

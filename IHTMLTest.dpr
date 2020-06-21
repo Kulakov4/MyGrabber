@@ -30,7 +30,10 @@ uses
   DialogUnit in 'Helpers\DialogUnit.pas',
   DownloadManager in 'Web\DownloadManager.pas',
   DownloadManagerEx in 'Web\DownloadManagerEx.pas',
-  WebLoader2 in 'Web\WebLoader2.pas';
+  WebLoader2 in 'Web\WebLoader2.pas',
+  WebGrabber in 'WebGrabber.pas',
+  LogInterface in 'Interfaces\LogInterface.pas',
+  FinalDataSet in 'DataSets\FinalDataSet.pas';
 
 {$R *.res}
 
