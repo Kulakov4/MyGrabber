@@ -24,6 +24,7 @@ type
 
   TParserManager = class(TComponent)
   private
+    FThread: TThread;
     FOnParseComplete: TNotifyEventsEx;
     FAfterParse: TNotifyEventsEx;
     FBeforeLoad: TNotifyEventsEx;
@@ -46,7 +47,7 @@ type
   public
     destructor Destroy; override;
     procedure Start(const AURL: String; AParentID: Integer; AParser: IParser;
-        APageParser: IPageParser);
+      APageParser: IPageParser);
     property OnParseComplete: TNotifyEventsEx read GetOnParseComplete;
     property OnError: TNotifyEventsEx read GetOnError;
     property AfterParse: TNotifyEventsEx read GetAfterParse;
@@ -206,12 +207,12 @@ procedure TParserManager.OnThreadTerminate(Sender: TObject);
 begin
   if FOnParseComplete <> nil then
     FOnParseComplete.CallEventHandlers(Self);
+
+  FThread := nil;
 end;
 
-procedure TParserManager.Start(const AURL: String; AParentID: Integer; AParser:
-    IParser; APageParser: IPageParser);
-var
-  myThread: TThread;
+procedure TParserManager.Start(const AURL: String; AParentID: Integer;
+AParser: IParser; APageParser: IPageParser);
 begin
   Assert(AURL.Length > 0);
   Assert(AParentID > 0);
@@ -219,14 +220,14 @@ begin
   FPageParser := APageParser;
   FParentID := AParentID;
 
-  myThread := TThread.CreateAnonymousThread(
+  FThread := TThread.CreateAnonymousThread(
     procedure
     begin
       Main(AURL, AParentID);
     end);
-  myThread.OnTerminate := OnThreadTerminate;
-  myThread.FreeOnTerminate := True;
-  myThread.Start;
+  FThread.OnTerminate := OnThreadTerminate;
+  FThread.FreeOnTerminate := True;
+  FThread.Start;
 end;
 
 end.

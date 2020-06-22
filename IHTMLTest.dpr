@@ -33,7 +33,9 @@ uses
   WebLoader2 in 'Web\WebLoader2.pas',
   WebGrabber in 'WebGrabber.pas',
   LogInterface in 'Interfaces\LogInterface.pas',
-  FinalDataSet in 'DataSets\FinalDataSet.pas';
+  FinalDataSet in 'DataSets\FinalDataSet.pas',
+  ErrorDataSet in 'DataSets\ErrorDataSet.pas',
+  FinalView in 'Views\FinalView.pas' {ViewFinal: TFrame};
 
 {$R *.res}
 

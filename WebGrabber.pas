@@ -6,7 +6,7 @@ uses
   System.Classes, Status, DownloadManagerEx, NotifyEvents, ProductListDataSet,
   ProductParser, ProductsDataSet, CategoryDataSet, System.Generics.Collections,
   System.SysUtils, LogInterface, System.StrUtils, CategoryParser,
-  ParserManager, PageParser, ProductListParser, FinalDataSet;
+  ParserManager, PageParser, ProductListParser, FinalDataSet, ErrorDataSet;
 
 type
   TWebGrabber = class(TComponent)
@@ -15,6 +15,7 @@ type
     FCategoryParser: TCategoryParser;
     FCategoryW: TCategoryW;
     FDownloadManagerEx: TDownloadManagerEx;
+    FErrorDS: TErrorDS;
     FFinalDataSet: TFinalDataSet;
     FLog: ILog;
     FOnStatusChange: TNotifyEventsEx;
@@ -30,6 +31,7 @@ type
     FThreadStatus: TThreadStatus;
     FWaitObjectCount: Integer;
     function CheckRunning: Boolean;
+    procedure CreateDocDir;
     procedure DoAfterParse(Sender: TObject);
     procedure DoBeforeLoad(Sender: TObject);
     procedure DoOnParseComplete(Sender: TObject);
@@ -38,6 +40,7 @@ type
     function GetCategoryPath(AID: Integer): string;
     function GetCategoryW: TCategoryW;
     function GetDownloadManagerEx: TDownloadManagerEx;
+    function GetErrorW: TErrorW;
     function GetFinalW: TFinalW;
     function GetPageParser: TPageParser;
     function GetParserManager: TParserManager;
@@ -46,6 +49,7 @@ type
     function GetProductParser: TProductParser;
     function GetProductW: TProductW;
     procedure OnDownloadComplete(Sender: TObject);
+    procedure OnDownloadError(Sender: TObject);
     procedure SetStatus(const Value: TStatus);
     procedure StartCategoryParsing(AID: Integer);
     procedure StartDocumentDownload(AIDProduct: Integer);
@@ -60,10 +64,12 @@ type
     property ProductParser: TProductParser read GetProductParser;
   public
     constructor Create(AOwner: TComponent; ALog: ILog); reintroduce;
+    procedure ContinueGrab;
     procedure StartGrab;
     procedure StopGrab;
     property CategoryW: TCategoryW read GetCategoryW;
     property OnStatusChange: TNotifyEventsEx read FOnStatusChange;
+    property ErrorW: TErrorW read GetErrorW;
     property FinalW: TFinalW read GetFinalW;
     property ParserManager: TParserManager read GetParserManager;
     property ProductListW: TProductListW read GetProductListW;
@@ -95,6 +101,10 @@ begin
   FFinalDataSet := TFinalDataSet.Create(Self);
 
   FOnStatusChange := TNotifyEventsEx.Create(Self);
+
+  FErrorDS := TErrorDS.Create(Self);
+
+  FStatus := Stoped;
 end;
 
 function TWebGrabber.CheckRunning: Boolean;
@@ -106,6 +116,35 @@ begin
   Dec(FWaitObjectCount);
   if FWaitObjectCount = 0 then
     Status := Stoped;
+end;
+
+procedure TWebGrabber.ContinueGrab;
+begin
+  CreateDocDir;
+
+  Status := Runing;
+
+  // Если есть необработанные товары
+  if FProductW.DataSet.RecordCount > 0 then
+    // Начинаем загрузку документации
+    StartDocumentDownload(FProductW.ID.F.AsInteger);
+
+  StartCategoryParsing(FCategoryDS.W.ID.F.AsInteger);
+end;
+
+procedure TWebGrabber.CreateDocDir;
+var
+  APath: string;
+  AProgramPath: string;
+begin
+  // Создаём необходимые папки
+  AProgramPath := TPath.GetDirectoryName(ParamStr(0));
+  APath := TPath.Combine(AProgramPath, 'Изображение');
+  TDirectory.CreateDirectory(APath);
+  APath := TPath.Combine(AProgramPath, 'Спецификация');
+  TDirectory.CreateDirectory(APath);
+  APath := TPath.Combine(AProgramPath, 'Чертёж');
+  TDirectory.CreateDirectory(APath);
 end;
 
 procedure TWebGrabber.DoAfterParse(Sender: TObject);
@@ -202,7 +241,7 @@ begin
         FCategoryW.ID.Locate(PM.ParentID, [], True);
 
         // Если для этой категории не были найдены подкатегории
-        if FCategoryW.Status.F.AsInteger = 0 then
+        if FCategoryW.Status.F.AsInteger = -1 then
         begin
           // Пробуем поискать список товаров в этой категории
           StartProductListParsing(PM.ParentID);
@@ -230,7 +269,7 @@ begin
               // Пробуем парсить товары
               StartProductParsing(FProductListW.ID.F.AsInteger);
             end;
-          0:
+          -1:
             // Если для этой категории не были найдены товары
             begin
               // добавить эту категорию в список категорий с ошибками!
@@ -303,11 +342,19 @@ begin
   if FDownloadManagerEx = nil then
   begin
     FDownloadManagerEx := TDownloadManagerEx.Create(Self);
+
+    TNotifyEventWrap.Create(FDownloadManagerEx.OnError, OnDownloadError);
+
     TNotifyEventWrap.Create(FDownloadManagerEx.OnDownloadComplete,
       OnDownloadComplete);
   end;
 
   Result := FDownloadManagerEx;
+end;
+
+function TWebGrabber.GetErrorW: TErrorW;
+begin
+  Result := FErrorDS.W;
 end;
 
 function TWebGrabber.GetFinalW: TFinalW;
@@ -417,6 +464,18 @@ begin
     StartDocumentDownload(FProductW.ID.F.AsInteger)
 end;
 
+procedure TWebGrabber.OnDownloadError(Sender: TObject);
+var
+  ADE: TDownloadError;
+begin
+  ADE := Sender as TDownloadError;
+
+  FErrorDS.W.TryAppend;
+  FErrorDS.W.URL.F.AsString := ADE.URL;
+  FErrorDS.W.ErrorText.F.AsString := ADE.ErrorMessage;
+  FErrorDS.W.TryPost;
+end;
+
 procedure TWebGrabber.SetStatus(const Value: TStatus);
 begin
   FStatus := Value;
@@ -447,10 +506,14 @@ begin
   // Она должна быть ещё не обработана
   Assert(FCategoryW.Status.F.AsInteger = 0);
 
-  FThreadStatus := tsCategory;
+  // Помечаем, что эта категория будет следующей у парсера
+  FCategoryW.SetStatus(-1);
 
-  // FCategoryNode.ID := FCategoryW.ID.F.AsInteger;
-  // FCategoryNode.ParentID := FCategoryW.ParentID.F.AsInteger;
+  // Если продолжать не надо
+  if not CheckRunning then
+    Exit;
+
+  FThreadStatus := tsCategory;
 
   // Запускаем парсер категорий в потоке
   ParserManager.Start(FCategoryW.HREF.F.AsString, FCategoryW.ID.F.AsInteger,
@@ -535,37 +598,22 @@ begin
 end;
 
 procedure TWebGrabber.StartGrab;
-var
-  APath: string;
-  AProgramPath: string;
 begin
-  // Создаём необходимые папки
-  AProgramPath := TPath.GetDirectoryName(ParamStr(0));
-  APath := TPath.Combine(AProgramPath, 'Изображение');
-  TDirectory.CreateDirectory(APath);
-  APath := TPath.Combine(AProgramPath, 'Спецификация');
-  TDirectory.CreateDirectory(APath);
-  APath := TPath.Combine(AProgramPath, 'Чертёж');
-  TDirectory.CreateDirectory(APath);
-
-  Status := Runing;
-
-  // Если есть необработанные товары
-  if FProductW.DataSet.RecordCount > 0 then
-    // Начинаем загрузку документации
-    StartDocumentDownload(FProductW.ID.F.AsInteger);
-
   FCategoryDS.W.TryAppend;
   FCategoryDS.W.Caption.F.AsString := 'Промышленные соединители Han®';
   FCategoryDS.W.HREF.F.AsString :=
     'https://b2b.harting.com/ebusiness/ru/ru/13991';
   FCategoryDS.W.TryPost;
 
-  StartCategoryParsing(FCategoryDS.W.ID.F.AsInteger);
+  ContinueGrab;
 end;
 
 procedure TWebGrabber.StartProductListParsing(AID: Integer);
 begin
+  // Если продолжать не надо
+  if not CheckRunning then
+    Exit;
+
   // Переходим на ту категорию, содержимое которой парсили
   FCategoryW.ID.Locate(AID, [], True);
 

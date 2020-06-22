@@ -3,10 +3,10 @@ unit FinalDataSet;
 interface
 
 uses
-  FireDAC.Comp.Client, DSWrap, System.Classes;
+  FireDAC.Comp.Client, DSWrap, System.Classes, ParserDataSet;
 
 type
-  TFinalW = class(TDSWrap)
+  TFinalW = class(TParserW)
   private
     FCategory2: TFieldWrap;
     FCategory1: TFieldWrap;
@@ -14,7 +14,6 @@ type
     FCategory4: TFieldWrap;
     FDescription: TFieldWrap;
     FDrawing: TFieldWrap;
-    FID: TFieldWrap;
     FImage: TFieldWrap;
     FItemNumber: TFieldWrap;
     FProducer: TFieldWrap;
@@ -28,7 +27,6 @@ type
     property Category4: TFieldWrap read FCategory4;
     property Description: TFieldWrap read FDescription;
     property Drawing: TFieldWrap read FDrawing;
-    property ID: TFieldWrap read FID;
     property Image: TFieldWrap read FImage;
     property ItemNumber: TFieldWrap read FItemNumber;
     property Producer: TFieldWrap read FProducer;
@@ -36,13 +34,13 @@ type
     property TemperatureRange: TFieldWrap read FTemperatureRange;
   end;
 
-  TFinalDataSet = class(TFDMemTable)
+  TFinalDataSet = class(TParserDS)
   private
   class var
-    FID: Integer;
   var
     FW: TFinalW;
-    procedure Do_AfterInsert(Sender: TObject);
+  protected
+    function CreateWrap: TParserW; override;
   public
     constructor Create(AOwner: TComponent); override;
     property W: TFinalW read FW;
@@ -56,7 +54,7 @@ uses
 constructor TFinalW.Create(AOwner: TComponent);
 begin
   inherited;
-  FID := TFieldWrap.Create(Self, 'ID', '', True);
+  ID.DisplayLabel := '';
   FCategory1 := TFieldWrap.Create(Self, 'Category1', 'Тип');
   FCategory2 := TFieldWrap.Create(Self, 'Category2', 'Категория');
   FCategory3 := TFieldWrap.Create(Self, 'Category3', 'Группа');
@@ -73,7 +71,7 @@ end;
 constructor TFinalDataSet.Create(AOwner: TComponent);
 begin
   inherited;
-  FW := TFinalW.Create(Self);
+  FW := ParserW as TFinalW;
 
   FieldDefs.Add(W.ID.FieldName, ftInteger);
   FieldDefs.Add(W.Category1.FieldName, ftWideString, 250);
@@ -89,17 +87,11 @@ begin
   FieldDefs.Add(W.TemperatureRange.FieldName, ftWideString, 50);
 
   CreateDataSet;
-
-  TNotifyEventWrap.Create(FW.AfterInsert, Do_AfterInsert,
-    FW.EventList);
 end;
 
-procedure TFinalDataSet.Do_AfterInsert(Sender: TObject);
+function TFinalDataSet.CreateWrap: TParserW;
 begin
-  // Заполняем поле ID
-  Inc(FID);
-  W.ID.F.AsInteger := FID;
-  W.Producer.F.AsString := 'HARTING';
+  Result := TFinalW.Create(Self);
 end;
 
 end.

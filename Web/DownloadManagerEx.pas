@@ -3,9 +3,22 @@ unit DownloadManagerEx;
 interface
 
 uses
-  System.Classes, System.Generics.Collections, NotifyEvents, System.Threading;
+  System.Classes, System.Generics.Collections, NotifyEvents, System.Threading,
+  System.SyncObjs;
 
 type
+  TDownloadError = class
+  private
+    FErrorMessage: String;
+    FFileName: String;
+    FURL: String;
+  public
+    constructor Create(const AURL, AFileName, AErrorMessage: string);
+    property ErrorMessage: String read FErrorMessage;
+    property FileName: String read FFileName;
+    property URL: String read FURL;
+  end;
+
   TDMRec = record
     URL: String;
     FileName: String;
@@ -18,12 +31,17 @@ type
     FTaskList: TList<ITask>;
     FOnDownloadComplete: TNotifyEventsEx;
     FCompletedTaskList: TList<ITask>;
+    FErrorList: TThreadList<TDownloadError>;
     FID: Integer;
+    FOnError: TNotifyEventsEx;
     function CreateTask(const AURL, AFileName: String;
       ATaskIndex: Integer): ITask;
     procedure DoOnDownloadComplete(ATaskIndex: Integer);
+    procedure DoOnError(ATaskIndex, AErrorIndex: Integer);
+    procedure FreeErrors;
     function GetOnDownloadComplete: TNotifyEventsEx;
     function GetDownloading: Boolean;
+    function GetOnError: TNotifyEventsEx;
     procedure Main(const AURL, AFileName: String; ATaskIndex: Integer);
   protected
   public
@@ -33,6 +51,7 @@ type
     property ID: Integer read FID;
     property Downloading: Boolean read GetDownloading;
     property OnDownloadComplete: TNotifyEventsEx read GetOnDownloadComplete;
+    property OnError: TNotifyEventsEx read GetOnError;
   end;
 
 implementation
@@ -45,12 +64,17 @@ begin
   inherited;
   FTaskList := TList<ITask>.Create;
   FCompletedTaskList := TList<ITask>.Create;
+  FErrorList := TThreadList<TDownloadError>.Create;
 end;
 
 destructor TDownloadManagerEx.Destroy;
 begin
   FreeAndNil(FTaskList);
   FreeAndNil(FCompletedTaskList);
+
+  FreeErrors;
+
+  FreeAndNil(FErrorList);
   inherited;
 end;
 
@@ -83,6 +107,48 @@ begin
   end;
 end;
 
+procedure TDownloadManagerEx.DoOnError(ATaskIndex, AErrorIndex: Integer);
+var
+  ADownloadError: TDownloadError;
+  AErrors: TList<TDownloadError>;
+begin
+  Assert(AErrorIndex >= 0);
+
+  // Извещаем о том, что произошла ошибка
+  if (FOnError <> nil) then
+  begin
+    AErrors := FErrorList.LockList;
+    try
+      Assert(AErrorIndex < AErrors.Count);
+      ADownloadError := AErrors[AErrorIndex];
+      FOnError.CallEventHandlers(ADownloadError);
+    finally
+      FErrorList.UnlockList;
+    end;
+  end;
+
+  DoOnDownloadComplete(ATaskIndex);
+end;
+
+procedure TDownloadManagerEx.FreeErrors;
+var
+  ADownloadError: TDownloadError;
+  AList: TList<TDownloadError>;
+  I: Integer;
+begin
+  AList := FErrorList.LockList;
+  try
+    for I := AList.Count - 1 downto 0 do
+    begin
+      ADownloadError := AList[I];
+      FErrorList.Remove(ADownloadError);
+      FreeAndNil(ADownloadError);
+    end;
+  finally
+    FErrorList.UnlockList;
+  end;
+end;
+
 function TDownloadManagerEx.GetOnDownloadComplete: TNotifyEventsEx;
 begin
   if FOnDownloadComplete = nil then
@@ -96,50 +162,81 @@ begin
   Result := FTaskList.Count > 0;
 end;
 
+function TDownloadManagerEx.GetOnError: TNotifyEventsEx;
+begin
+  if FOnError = nil then
+    FOnError := TNotifyEventsEx.Create(Self);
+
+  Result := FOnError;
+end;
+
 procedure TDownloadManagerEx.Main(const AURL, AFileName: String;
 ATaskIndex: Integer);
 var
+  ADownloadError: TDownloadError;
+  AErrorIndex: Integer;
   ALoader: TWebLoader2;
   AMemoryStream: TMemoryStream;
 begin
-  ALoader := TWebLoader2.Create(nil);
   try
-    AMemoryStream := TMemoryStream.Create;
+    ALoader := TWebLoader2.Create(nil);
     try
-      // Загружаем файл в память
-      ALoader.Load(AURL, AMemoryStream);
-      // Сохраняем данные в файл
-      AMemoryStream.SaveToFile(AFileName);
+      AMemoryStream := TMemoryStream.Create;
+      try
+        // Загружаем файл в память
+        ALoader.Load(AURL, AMemoryStream);
+        // Сохраняем данные в файл
+        AMemoryStream.SaveToFile(AFileName);
+      finally
+        FreeAndNil(AMemoryStream);
+      end;
     finally
-      FreeAndNil(AMemoryStream);
-    end;
-  finally
-    FreeAndNil(ALoader);
+      FreeAndNil(ALoader);
 
-    TThread.Queue(nil,
-      procedure
-      begin
-        DoOnDownloadComplete(ATaskIndex)
-      end);
+      TThread.Queue(nil,
+        procedure
+        begin
+          DoOnDownloadComplete(ATaskIndex)
+        end);
+    end;
+  except
+    on E: Exception do
+    begin
+      // Запоминаем ошибку
+      ADownloadError := TDownloadError.Create(AURL, AFileName, E.Message);
+      // Добавляем её в список ошибок
+      FErrorList.Add(ADownloadError);
+      AErrorIndex := FErrorList.LockList.Count - 1;
+      FErrorList.UnlockList;
+
+      TThread.Synchronize(nil,
+        procedure
+        begin
+          DoOnError(ATaskIndex, AErrorIndex);
+        end);
+
+    end;
   end;
 end;
 
-procedure TDownloadManagerEx.StartDownload(AID: Integer; ADMRecs:
-    TArray<TDMRec>);
+procedure TDownloadManagerEx.StartDownload(AID: Integer;
+ADMRecs: TArray<TDMRec>);
 var
   ATask: ITask;
-  i: Integer;
+  I: Integer;
 begin
   Assert(Length(ADMRecs) > 0);
 
   // Важно чтобы никакая друга загрузка не производилась
   Assert(FTaskList.Count = 0);
 
+  FreeErrors;
+
   FID := AID; // Идентификатор загрузки
 
-  for i := 0 to Length(ADMRecs) - 1 do
+  for I := 0 to Length(ADMRecs) - 1 do
   begin
-    ATask := CreateTask(ADMRecs[i].URL, ADMRecs[i].FileName, i);
+    ATask := CreateTask(ADMRecs[I].URL, ADMRecs[I].FileName, I);
     FTaskList.Add(ATask);
     ATask.Start;
   end;
@@ -152,6 +249,13 @@ begin
 
   URL := AURL;
   FileName := AFileName;
+end;
+
+constructor TDownloadError.Create(const AURL, AFileName, AErrorMessage: string);
+begin
+  FURL := AURL;
+  FFileName := AFileName;
+  FErrorMessage := AErrorMessage;
 end;
 
 end.

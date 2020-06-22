@@ -226,7 +226,7 @@ type
     function AllValues(const ADelimiter: String = ',';
       AUnique: Boolean = False): String;
     function AsIntArray(AUnique: Boolean = False): TArray<Integer>;
-    property DisplayLabel: string read FDisplayLabel;
+    property DisplayLabel: string read FDisplayLabel write FDisplayLabel;
     property F: TField read GetF;
   end;
 
