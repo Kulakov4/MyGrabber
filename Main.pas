@@ -31,10 +31,16 @@ type
     cxTabSheetProducts: TcxTabSheet;
     cxTabSheetFinal: TcxTabSheet;
     cxTabSheetErrors: TcxTabSheet;
+    actContinueGrab: TAction;
+    dxBarButton2: TdxBarButton;
+    dxBarButton3: TdxBarButton;
+    procedure actContinueGrabExecute(Sender: TObject);
     procedure actStartGrabExecute(Sender: TObject);
     procedure actStopGrabExecute(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure FormCreate(Sender: TObject);
+  strict private
+    procedure Clear;
   private
     FClosing: Boolean;
     FViewCategory: TfrmGrid;
@@ -61,14 +67,24 @@ implementation
 
 {$R *.dfm}
 
+procedure TMainForm.actContinueGrabExecute(Sender: TObject);
+begin
+  FWebGrabber.ContinueGrab;
+  actStartGrab.Visible := False;
+  actStopGrab.Visible := True;
+end;
+
 procedure TMainForm.actStartGrabExecute(Sender: TObject);
 begin
   FWebGrabber.StartGrab;
+  actContinueGrab.Visible := False;
+  actStopGrab.Visible := True;
 end;
 
 procedure TMainForm.actStopGrabExecute(Sender: TObject);
 begin
   FWebGrabber.StopGrab;
+
 end;
 
 procedure TMainForm.Add(const S: string);
@@ -86,14 +102,21 @@ begin
   FViewErrors.MainView.ApplyBestFit;
 end;
 
+procedure TMainForm.Clear;
+begin
+  cxMemo1.Clear;
+end;
+
 procedure TMainForm.DoOnStatusChange(Sender: TObject);
 begin
   case FWebGrabber.Status of
     Runing:
       begin
+        actStartGrab.Enabled := False;
+        actContinueGrab.Enabled := False;
         actStopGrab.Caption := 'Остановить';
         actStopGrab.Enabled := True;
-        dxBarButton1.Action := actStopGrab;
+
       end;
     Stoping:
       begin
@@ -102,7 +125,16 @@ begin
       end;
     Stoped:
       begin
-        dxBarButton1.Action := actStartGrab;
+        actStartGrab.Enabled := True;
+        actContinueGrab.Enabled := True;
+
+        actStopGrab.Enabled := False;
+        actStopGrab.Visible := False;
+        actStopGrab.Caption := 'Остановить';
+
+        actStartGrab.Visible := True;
+        actContinueGrab.Visible := True;
+
         if FClosing then
           Close;
       end;
@@ -160,6 +192,8 @@ begin
   TNotifyEventWrap.Create(FWebGrabber.ErrorW.AfterPostM, AfterErrorPost,
     FWebGrabber.ErrorW.EventList);
 
+  actStopGrab.Enabled := False;
+  actStopGrab.Visible := False;
 end;
 
 procedure TMainForm.NeedStopMsg(var Message: TMessage);

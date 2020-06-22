@@ -35,7 +35,9 @@ uses
   LogInterface in 'Interfaces\LogInterface.pas',
   FinalDataSet in 'DataSets\FinalDataSet.pas',
   ErrorDataSet in 'DataSets\ErrorDataSet.pas',
-  FinalView in 'Views\FinalView.pas' {ViewFinal: TFrame};
+  FinalView in 'Views\FinalView.pas' {ViewFinal: TFrame},
+  WebGrabberState in 'WebGrabberState.pas',
+  saver in 'saver.pas';
 
 {$R *.res}
 

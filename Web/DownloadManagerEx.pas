@@ -90,6 +90,9 @@ end;
 
 procedure TDownloadManagerEx.DoOnDownloadComplete(ATaskIndex: Integer);
 begin
+  if FTaskList.Count = 0 then
+    Exit;
+
   Assert(ATaskIndex >= 0);
   Assert(ATaskIndex < FTaskList.Count);
 
@@ -209,7 +212,7 @@ begin
       AErrorIndex := FErrorList.LockList.Count - 1;
       FErrorList.UnlockList;
 
-      TThread.Synchronize(nil,
+      TThread.Queue(nil,
         procedure
         begin
           DoOnError(ATaskIndex, AErrorIndex);

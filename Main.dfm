@@ -1,7 +1,7 @@
 object MainForm: TMainForm
   Left = 0
   Top = 0
-  Caption = 'MainForm'
+  Caption = 'Harting.com'
   ClientHeight = 669
   ClientWidth = 877
   Color = clBtnFace
@@ -43,42 +43,22 @@ object MainForm: TMainForm
     object cxTabSheetCategory: TcxTabSheet
       Caption = #1050#1072#1090#1077#1075#1086#1088#1080#1080' '#1080' '#1087#1086#1076#1082#1072#1090#1077#1075#1086#1088#1080#1080
       ImageIndex = 0
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
     end
     object cxTabSheetProductList: TcxTabSheet
       Caption = #1057#1087#1080#1089#1082#1080' '#1090#1086#1074#1072#1088#1086#1074
       ImageIndex = 1
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
     end
     object cxTabSheetProducts: TcxTabSheet
       Caption = #1058#1086#1074#1072#1088#1099
       ImageIndex = 3
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
     end
     object cxTabSheetFinal: TcxTabSheet
       Caption = #1056#1077#1079#1091#1083#1100#1090#1072#1090
       ImageIndex = 4
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
     end
     object cxTabSheetErrors: TcxTabSheet
       Caption = #1054#1096#1080#1073#1082#1080
       ImageIndex = 5
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
     end
   end
   object dxBarManager1: TdxBarManager
@@ -118,6 +98,14 @@ object MainForm: TMainForm
         item
           Visible = True
           ItemName = 'dxBarButton1'
+        end
+        item
+          Visible = True
+          ItemName = 'dxBarButton2'
+        end
+        item
+          Visible = True
+          ItemName = 'dxBarButton3'
         end>
       OneOnRow = True
       Row = 0
@@ -129,17 +117,32 @@ object MainForm: TMainForm
       Action = actStartGrab
       Category = 0
     end
+    object dxBarButton2: TdxBarButton
+      Action = actContinueGrab
+      Category = 0
+    end
+    object dxBarButton3: TdxBarButton
+      Action = actStopGrab
+      Category = 0
+    end
   end
   object ActionList1: TActionList
     Left = 640
     Top = 64
     object actStartGrab: TAction
-      Caption = #1053#1072#1095#1072#1090#1100
+      Caption = #1053#1086#1074#1099#1081' '#1089#1073#1086#1088
+      Hint = #1053#1072#1095#1072#1090#1100' '#1089#1073#1086#1088' '#1080#1085#1092#1086#1088#1084#1072#1094#1080#1080
       OnExecute = actStartGrabExecute
     end
     object actStopGrab: TAction
-      Caption = #1054#1089#1090#1072#1085#1086#1074#1080#1090#1100
+      Caption = #1054#1089#1090#1072#1085#1086#1074#1080#1090#1100' '#1089#1073#1086#1088
+      Hint = #1054#1089#1090#1072#1085#1086#1074#1080#1090#1100' '#1089#1073#1086#1088' '#1080#1085#1092#1086#1088#1084#1072#1094#1080#1080
       OnExecute = actStopGrabExecute
+    end
+    object actContinueGrab: TAction
+      Caption = #1055#1088#1086#1076#1086#1083#1078#1080#1090#1100' '#1089#1073#1086#1088
+      Hint = #1055#1088#1086#1076#1086#1083#1078#1080#1090#1100' '#1089#1073#1086#1088' '#1080#1085#1092#1086#1088#1084#1072#1094#1080#1080
+      OnExecute = actContinueGrabExecute
     end
   end
 end
