@@ -10,13 +10,14 @@ uses
   dxSkinsCore, dxSkinsDefaultPainters, cxTextEdit, cxMemo, Vcl.ExtCtrls,
   GridFrame, dxBarBuiltInMenu, System.Actions, Vcl.ActnList, cxClasses, dxBar,
   cxPC, PageParser, cxLabel, System.Generics.Collections, Status, LogInterface,
-  WebGrabber, NotifyEvents, FinalView;
+  WebGrabber, NotifyEvents, FinalView, FireDAC.Stan.StorageJSON,
+  FireDAC.Stan.StorageBin;
 
 const
   WM_NEED_STOP = WM_USER + 1;
 
 type
-  TMainForm = class(TForm, ILog)
+  TMainForm = class(TForm)
     cxPageControl1: TcxPageControl;
     dxBarManager1: TdxBarManager;
     dxBarManager1Bar1: TdxBar;
@@ -27,20 +28,26 @@ type
     dxBarButton1: TdxBarButton;
     actStopGrab: TAction;
     cxTabSheetLog: TcxTabSheet;
-    cxMemo1: TcxMemo;
     cxTabSheetProducts: TcxTabSheet;
     cxTabSheetFinal: TcxTabSheet;
     cxTabSheetErrors: TcxTabSheet;
     actContinueGrab: TAction;
     dxBarButton2: TdxBarButton;
     dxBarButton3: TdxBarButton;
+    dxBarButton4: TdxBarButton;
+    actSave: TAction;
+    actLoad: TAction;
+    dxBarButton5: TdxBarButton;
+    FDStanStorageJSONLink1: TFDStanStorageJSONLink;
+    FDStanStorageBinLink1: TFDStanStorageBinLink;
     procedure actContinueGrabExecute(Sender: TObject);
+    procedure actLoadExecute(Sender: TObject);
+    procedure actSaveExecute(Sender: TObject);
     procedure actStartGrabExecute(Sender: TObject);
     procedure actStopGrabExecute(Sender: TObject);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure FormCreate(Sender: TObject);
   strict private
-    procedure Clear;
   private
     FClosing: Boolean;
     FViewCategory: TfrmGrid;
@@ -48,10 +55,12 @@ type
     FViewProductList: TfrmGrid;
     FViewFinal: TViewFinal;
     FViewErrors: TfrmGrid;
+    FViewLog: TfrmGrid;
     FWebGrabber: TWebGrabber;
-    procedure Add(const S: string);
     procedure AfterFinalPost(Sender: TObject);
     procedure AfterErrorPost(Sender: TObject);
+    procedure AfterLogPost(Sender: TObject);
+    procedure DoOnManyErrors(Sender: TObject);
     procedure DoOnStatusChange(Sender: TObject);
     { Private declarations }
   protected
@@ -74,6 +83,22 @@ begin
   actStopGrab.Visible := True;
 end;
 
+procedure TMainForm.actLoadExecute(Sender: TObject);
+begin
+  FWebGrabber.LoadState;
+  FViewLog.MainView.ApplyBestFit;
+  FViewFinal.MainView.ApplyBestFit;
+  FViewErrors.MainView.ApplyBestFit;
+  FViewCategory.MainView.ApplyBestFit;
+  FViewProducts.MainView.ApplyBestFit;
+  FViewProductList.MainView.ApplyBestFit;
+end;
+
+procedure TMainForm.actSaveExecute(Sender: TObject);
+begin
+  FWebGrabber.SaveState;
+end;
+
 procedure TMainForm.actStartGrabExecute(Sender: TObject);
 begin
   FWebGrabber.StartGrab;
@@ -87,11 +112,6 @@ begin
 
 end;
 
-procedure TMainForm.Add(const S: string);
-begin
-  cxMemo1.Lines.Add(S);
-end;
-
 procedure TMainForm.AfterFinalPost(Sender: TObject);
 begin
   FViewFinal.MainView.ApplyBestFit;
@@ -102,9 +122,15 @@ begin
   FViewErrors.MainView.ApplyBestFit;
 end;
 
-procedure TMainForm.Clear;
+procedure TMainForm.AfterLogPost(Sender: TObject);
 begin
-  cxMemo1.Clear;
+  FViewLog.MainView.ApplyBestFit;
+end;
+
+procedure TMainForm.DoOnManyErrors(Sender: TObject);
+begin
+  ShowMessage('Обнаружено много ошибок');
+  FWebGrabber.StopGrab;
 end;
 
 procedure TMainForm.DoOnStatusChange(Sender: TObject);
@@ -156,6 +182,10 @@ end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
+  FViewLog := TfrmGrid.Create(Self);
+  FViewLog.Name := 'ViewLog';
+  FViewLog.Place(cxTabSheetLog);
+
   FViewCategory := TfrmGrid.Create(Self);
   FViewCategory.Name := 'ViewCategory1';
   FViewCategory.Place(cxTabSheetCategory);
@@ -175,8 +205,11 @@ begin
   FViewErrors.Name := 'ViewErrors';
   FViewErrors.Place(cxTabSheetErrors);
 
-  FWebGrabber := TWebGrabber.Create(Self, Self);
+  FWebGrabber := TWebGrabber.Create(Self);
   TNotifyEventWrap.Create(FWebGrabber.OnStatusChange, DoOnStatusChange);
+  TNotifyEventWrap.Create(FWebGrabber.OnManyErrors, DoOnManyErrors);
+
+  FViewLog.DSWrap := FWebGrabber.LogW;
 
   FViewCategory.DSWrap := FWebGrabber.CategoryW;
 
@@ -184,13 +217,16 @@ begin
 
   FViewProducts.DSWrap := FWebGrabber.ProductW;
 
-  FViewFinal.DSWrap := FWebGrabber.FinalW;
+  FViewFinal.W := FWebGrabber.FinalW;
   TNotifyEventWrap.Create(FWebGrabber.FinalW.AfterPostM, AfterFinalPost,
     FWebGrabber.FinalW.EventList);
 
   FViewErrors.DSWrap := FWebGrabber.ErrorW;
   TNotifyEventWrap.Create(FWebGrabber.ErrorW.AfterPostM, AfterErrorPost,
     FWebGrabber.ErrorW.EventList);
+
+  TNotifyEventWrap.Create(FWebGrabber.LogW.AfterPostM, AfterLogPost,
+    FWebGrabber.logW.EventList);
 
   actStopGrab.Enabled := False;
   actStopGrab.Visible := False;

@@ -4,14 +4,16 @@ interface
 
 uses
   System.Classes, ParserInterface, PageParserInterface, DSWrap, NotifyEvents,
-  MSHTML, WebLoader;
+  MSHTML, WebLoader, System.Generics.Collections;
 
 type
   TNotifyObj = class(TObject)
   private
+    FLogID: Integer;
     FURL: string;
   protected
   public
+    property LogID: Integer read FLogID;
     property URL: string read FURL;
   end;
 
@@ -28,7 +30,8 @@ type
     FOnParseComplete: TNotifyEventsEx;
     FAfterParse: TNotifyEventsEx;
     FBeforeLoad: TNotifyEventsEx;
-    FErrorNotify: TErrorNotify;
+    FErrors: TObjectList<TErrorNotify>;
+    FLogID: Integer;
     FParentID: Integer;
     FNotifyObj: TNotifyObj;
     FOnError: TNotifyEventsEx;
@@ -39,12 +42,14 @@ type
     function GetBeforeLoad: TNotifyEventsEx;
     function GetOnError: TNotifyEventsEx;
     procedure Main(const AURL: String; AParentID: Integer);
-    procedure NotifyAfterParse(AURL: string);
+    procedure NotifyAfterParse(AURL: string; ALogID: Integer);
     procedure NotifyBeforeLoad;
-    procedure NotifyError(const AURL, AErrorMessage: String);
+    procedure NotifyError(const AURL: String; ALogID: Integer;
+      const AErrorMessage: String);
     procedure OnThreadTerminate(Sender: TObject);
   protected
   public
+    constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     procedure Start(const AURL: String; AParentID: Integer; AParser: IParser;
       APageParser: IPageParser);
@@ -52,6 +57,8 @@ type
     property OnError: TNotifyEventsEx read GetOnError;
     property AfterParse: TNotifyEventsEx read GetAfterParse;
     property BeforeLoad: TNotifyEventsEx read GetBeforeLoad;
+    property Errors: TObjectList<TErrorNotify> read FErrors;
+    property LogID: Integer read FLogID write FLogID;
     property ParentID: Integer read FParentID;
   end;
 
@@ -61,9 +68,14 @@ uses
   System.SysUtils, System.Variants, Winapi.ActiveX,
   System.Win.ComObj, Vcl.Forms;
 
-destructor TParserManager.Destroy;
+constructor TParserManager.Create(AOwner: TComponent);
 begin
   inherited;
+  FErrors := TObjectList<TErrorNotify>.Create;
+end;
+
+destructor TParserManager.Destroy;
+begin
   if FOnParseComplete <> nil then
     FreeAndNil(FOnParseComplete);
 
@@ -72,6 +84,9 @@ begin
 
   if FAfterParse <> nil then
     FreeAndNil(FAfterParse);
+
+  FreeAndNil(FErrors);
+  inherited;
 end;
 
 function TParserManager.GetOnParseComplete: TNotifyEventsEx;
@@ -148,7 +163,7 @@ begin
         TThread.Synchronize(TThread.CurrentThread,
           procedure()
           begin
-            NotifyAfterParse(APageURL);
+            NotifyAfterParse(APageURL, LogID);
           end);
 
         ANextPageAvailable := False;
@@ -167,12 +182,12 @@ begin
       TThread.Synchronize(TThread.CurrentThread,
         procedure()
         begin
-          NotifyError(APageURL, E.Message);
+          NotifyError(APageURL, LogID, E.Message);
         end);
   end;
 end;
 
-procedure TParserManager.NotifyAfterParse(AURL: string);
+procedure TParserManager.NotifyAfterParse(AURL: string; ALogID: Integer);
 begin
   if FAfterParse = nil then
     Exit;
@@ -181,6 +196,7 @@ begin
     FNotifyObj := TNotifyObj.Create;
 
   FNotifyObj.FURL := AURL;
+  FNotifyObj.FLogID := ALogID;
   FAfterParse.CallEventHandlers(FNotifyObj);
 end;
 
@@ -190,17 +206,23 @@ begin
     FBeforeLoad.CallEventHandlers(Self);
 end;
 
-procedure TParserManager.NotifyError(const AURL, AErrorMessage: String);
+procedure TParserManager.NotifyError(const AURL: String; ALogID: Integer;
+const AErrorMessage: String);
+var
+  AErrorNotify: TErrorNotify;
 begin
+  AErrorNotify := TErrorNotify.Create;
+
+  AErrorNotify.FURL := AURL;
+  AErrorNotify.FLogID := ALogID;
+  AErrorNotify.FErrorMessage := AErrorMessage;
+
+  FErrors.Add(AErrorNotify);
+
   if FOnError = nil then
     Exit;
 
-  if FErrorNotify = nil then
-    FErrorNotify := TErrorNotify.Create;
-
-  FErrorNotify.FURL := AURL;
-  FErrorNotify.FErrorMessage := AErrorMessage;
-  FOnError.CallEventHandlers(FErrorNotify);
+  FOnError.CallEventHandlers(AErrorNotify);
 end;
 
 procedure TParserManager.OnThreadTerminate(Sender: TObject);
@@ -219,6 +241,8 @@ begin
   FParser := AParser;
   FPageParser := APageParser;
   FParentID := AParentID;
+
+  FErrors.Clear; // Очищаем все ошибки
 
   FThread := TThread.CreateAnonymousThread(
     procedure

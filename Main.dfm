@@ -3,7 +3,7 @@ object MainForm: TMainForm
   Top = 0
   Caption = 'Harting.com'
   ClientHeight = 669
-  ClientWidth = 877
+  ClientWidth = 1008
   Color = clBtnFace
   Font.Charset = DEFAULT_CHARSET
   Font.Color = clWindowText
@@ -11,6 +11,7 @@ object MainForm: TMainForm
   Font.Name = 'Tahoma'
   Font.Style = []
   OldCreateOrder = False
+  Position = poDesktopCenter
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
   PixelsPerInch = 96
@@ -18,7 +19,7 @@ object MainForm: TMainForm
   object cxPageControl1: TcxPageControl
     Left = 0
     Top = 28
-    Width = 877
+    Width = 1008
     Height = 641
     Align = alClient
     TabOrder = 0
@@ -26,39 +27,51 @@ object MainForm: TMainForm
     Properties.CustomButtons.Buttons = <>
     ClientRectBottom = 637
     ClientRectLeft = 4
-    ClientRectRight = 873
+    ClientRectRight = 1004
     ClientRectTop = 29
     object cxTabSheetLog: TcxTabSheet
       Caption = #1046#1091#1088#1085#1072#1083' '#1089#1086#1073#1099#1090#1080#1081
       ImageIndex = 2
-      object cxMemo1: TcxMemo
-        Left = 0
-        Top = 0
-        Align = alClient
-        TabOrder = 0
-        Height = 608
-        Width = 869
-      end
     end
     object cxTabSheetCategory: TcxTabSheet
       Caption = #1050#1072#1090#1077#1075#1086#1088#1080#1080' '#1080' '#1087#1086#1076#1082#1072#1090#1077#1075#1086#1088#1080#1080
       ImageIndex = 0
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
     end
     object cxTabSheetProductList: TcxTabSheet
       Caption = #1057#1087#1080#1089#1082#1080' '#1090#1086#1074#1072#1088#1086#1074
       ImageIndex = 1
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
     end
     object cxTabSheetProducts: TcxTabSheet
       Caption = #1058#1086#1074#1072#1088#1099
       ImageIndex = 3
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
     end
     object cxTabSheetFinal: TcxTabSheet
       Caption = #1056#1077#1079#1091#1083#1100#1090#1072#1090
       ImageIndex = 4
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
     end
     object cxTabSheetErrors: TcxTabSheet
       Caption = #1054#1096#1080#1073#1082#1080
       ImageIndex = 5
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
     end
   end
   object dxBarManager1: TdxBarManager
@@ -106,6 +119,14 @@ object MainForm: TMainForm
         item
           Visible = True
           ItemName = 'dxBarButton3'
+        end
+        item
+          Visible = True
+          ItemName = 'dxBarButton4'
+        end
+        item
+          Visible = True
+          ItemName = 'dxBarButton5'
         end>
       OneOnRow = True
       Row = 0
@@ -123,6 +144,14 @@ object MainForm: TMainForm
     end
     object dxBarButton3: TdxBarButton
       Action = actStopGrab
+      Category = 0
+    end
+    object dxBarButton4: TdxBarButton
+      Action = actSave
+      Category = 0
+    end
+    object dxBarButton5: TdxBarButton
+      Action = actLoad
       Category = 0
     end
   end
@@ -144,5 +173,21 @@ object MainForm: TMainForm
       Hint = #1055#1088#1086#1076#1086#1083#1078#1080#1090#1100' '#1089#1073#1086#1088' '#1080#1085#1092#1086#1088#1084#1072#1094#1080#1080
       OnExecute = actContinueGrabExecute
     end
+    object actSave: TAction
+      Caption = #1057#1086#1093#1088#1072#1085#1080#1090#1100
+      OnExecute = actSaveExecute
+    end
+    object actLoad: TAction
+      Caption = #1047#1072#1075#1088#1091#1079#1080#1090#1100
+      OnExecute = actLoadExecute
+    end
+  end
+  object FDStanStorageJSONLink1: TFDStanStorageJSONLink
+    Left = 524
+    Top = 417
+  end
+  object FDStanStorageBinLink1: TFDStanStorageBinLink
+    Left = 548
+    Top = 489
   end
 end

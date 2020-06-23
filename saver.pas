@@ -34,9 +34,9 @@ type
     procedure AfterConstruction; override;
     property AutoLoadOptions: Boolean read FAutoLoadOptions write FAutoLoadOptions;
     property AutoSaveOptions: Boolean read FAutoSaveOptions write FAutoSaveOptions;
+    property FileName: string read FFileName write FFileName;
     property Saver: TSaver read FSaver;
   published
-    property FileName: string read FFileName write FFileName;
   end;
 
   TFileSaver = class(TSaver)

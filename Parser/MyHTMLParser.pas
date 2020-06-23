@@ -17,17 +17,18 @@ type
 implementation
 
 uses
-  System.Generics.Collections, System.SysUtils, System.Variants;
+  System.Generics.Collections, System.SysUtils, System.Variants, NounUnit;
 
 class function TMyHTMLParser.Parse(AHTMLElementCollection
   : IHTMLElementCollection; const ATagName, AClassName: String;
   TestResult: Integer = 0): TArray<IHTMLElement>;
 var
   AElementClassName: string;
+  AErrorText: string;
   AHTMLElement: IHTMLElement;
   i: Integer;
-  it: WideString;
   L: TList<IHTMLElement>;
+  len: Integer;
 begin
   Assert(AHTMLElementCollection <> nil);
   Assert(not ATagName.IsEmpty);
@@ -42,13 +43,9 @@ begin
       AElementClassName := AHTMLElement._className;
       AElementClassName := AElementClassName.Trim;
 
-      // if AElementClassName.StartsWith('pagination-light__controls') then
-      // beep;
-
       if (AHTMLElement.tagName = ATagName) and (AElementClassName = AClassName)
       then
       begin
-        it := AHTMLElement.innerText;
         L.Add(AHTMLElement);
       end;
     end;
@@ -57,8 +54,23 @@ begin
     FreeAndNil(L);
   end;
 
-  if TestResult > 0 then
-    Assert(length(Result) = TestResult);
+  if TestResult = 0 then
+    Exit;
+
+  len := length(Result);
+  if len <> TestResult then
+  begin
+    AErrorText := Format('Ошибка при разборе HTML. <%s class="%s">',
+      [ATagName, AClassName]);
+
+    if len = 0 then
+      AErrorText := AErrorText + ' не найден'
+    else
+      AErrorText := AErrorText + Format(' найден %d %s',
+        [len, TNoun.Get(len, 'раз', 'раза', 'раз')]);
+
+    raise Exception.Create(AErrorText);
+  end;
 end;
 
 end.

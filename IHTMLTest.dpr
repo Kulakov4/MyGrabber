@@ -37,7 +37,10 @@ uses
   ErrorDataSet in 'DataSets\ErrorDataSet.pas',
   FinalView in 'Views\FinalView.pas' {ViewFinal: TFrame},
   WebGrabberState in 'WebGrabberState.pas',
-  saver in 'saver.pas';
+  saver in 'saver.pas',
+  AppDataDirHelper in 'Helpers\AppDataDirHelper.pas',
+  LogDataSet in 'DataSets\LogDataSet.pas',
+  NounUnit in 'Helpers\NounUnit.pas';
 
 {$R *.res}
 

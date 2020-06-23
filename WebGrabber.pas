@@ -7,7 +7,7 @@ uses
   ProductParser, ProductsDataSet, CategoryDataSet, System.Generics.Collections,
   System.SysUtils, LogInterface, System.StrUtils, CategoryParser,
   ParserManager, PageParser, ProductListParser, FinalDataSet, ErrorDataSet,
-  WebGrabberState;
+  WebGrabberState, LogDataSet;
 
 type
   TWebGrabber = class(TComponent)
@@ -15,11 +15,13 @@ type
     FCategoryDS: TCategoryDS;
     FCategoryParser: TCategoryParser;
     FCategoryW: TCategoryW;
+    FDownloadLogID: Integer;
     FDownloadManagerEx: TDownloadManagerEx;
     FErrorDS: TErrorDS;
     FFinalDataSet: TFinalDataSet;
-    FLog: ILog;
+    FLogDS: TLogDS;
     FOnStatusChange: TNotifyEventsEx;
+    FOnManyErrors: TNotifyEventsEx;
     FPageParser: TPageParser;
     FParserManager: TParserManager;
     FProductListDS: TProductListDS;
@@ -44,6 +46,7 @@ type
     function GetDownloadManagerEx: TDownloadManagerEx;
     function GetErrorW: TErrorW;
     function GetFinalW: TFinalW;
+    function GetLogW: TLogW;
     function GetPageParser: TPageParser;
     function GetParserManager: TParserManager;
     function GetProductListParser: TProductListParser;
@@ -65,14 +68,18 @@ type
     property ProductListParser: TProductListParser read GetProductListParser;
     property ProductParser: TProductParser read GetProductParser;
   public
-    constructor Create(AOwner: TComponent; ALog: ILog); reintroduce;
+    constructor Create(AOwner: TComponent); override;
     procedure ContinueGrab;
+    procedure SaveState;
+    procedure LoadState;
     procedure StartGrab;
     procedure StopGrab;
     property CategoryW: TCategoryW read GetCategoryW;
     property OnStatusChange: TNotifyEventsEx read FOnStatusChange;
+    property OnManyErrors: TNotifyEventsEx read FOnManyErrors;
     property ErrorW: TErrorW read GetErrorW;
     property FinalW: TFinalW read GetFinalW;
+    property LogW: TLogW read GetLogW;
     property ParserManager: TParserManager read GetParserManager;
     property ProductListW: TProductListW read GetProductListW;
     property ProductW: TProductW read GetProductW;
@@ -82,12 +89,13 @@ type
 implementation
 
 uses
-  System.IOUtils;
+  System.IOUtils, AppDataDirHelper, NounUnit;
 
-constructor TWebGrabber.Create(AOwner: TComponent; ALog: ILog);
+constructor TWebGrabber.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
-  FLog := ALog;
+  FLogDS := TLogDS.Create(Self);
+
   FCategoryDS := TCategoryDS.Create(Self);
   FCategoryW := TCategoryW.Create(FCategoryDS.W.AddClone(''));
 
@@ -103,6 +111,7 @@ begin
   FFinalDataSet := TFinalDataSet.Create(Self);
 
   FOnStatusChange := TNotifyEventsEx.Create(Self);
+  FOnManyErrors := TNotifyEventsEx.Create(Self);
 
   FErrorDS := TErrorDS.Create(Self);
 
@@ -127,6 +136,9 @@ begin
   CreateDocDir;
 
   Status := Runing;
+
+  // Очищаем все ошибки
+  FErrorDS.EmptyDataSet;
 
   // Если есть необработанные товары
   if FProductW.DataSet.RecordCount > 0 then
@@ -169,8 +181,17 @@ begin
     tsCategory:
       begin
         if CategoryParser.W.RecordCount = 0 then
+        begin
+          FLogDS.W.SetState(ANotifyObj.LogID, 'подкатегории не найдены');
           Exit;
+        end;
         FCategoryDS.W.AppendFrom(CategoryParser.W);
+
+        FLogDS.W.SetState(ANotifyObj.LogID,
+          Format('%s %d %s', [TNoun.Get(CategoryParser.W.RecordCount, 'найдена',
+          'найдено', 'найдено'), CategoryParser.W.RecordCount,
+          TNoun.Get(CategoryParser.W.RecordCount, 'подкатегория',
+          'подкатегории', 'подкатегорий')]));
 
         if FCategoryW.HREF.Locate(ANotifyObj.URL, []) then
           FCategoryW.SetStatus(1); // Нашли подкатегории
@@ -181,9 +202,19 @@ begin
       begin
         // Если результат парсинга списка товаров не успешен
         if ProductListParser.W.RecordCount = 0 then
+        begin
+          FLogDS.W.SetState(ANotifyObj.LogID, 'товары не найдены');
           Exit;
+        end;
 
         FProductListDS.W.AppendFrom(ProductListParser.W);
+
+        FLogDS.W.SetState(ANotifyObj.LogID,
+          Format('%s %d %s', [TNoun.Get(ProductListParser.W.RecordCount,
+          'найден', 'найдено', 'найдено'), ProductListParser.W.RecordCount,
+          TNoun.Get(ProductListParser.W.RecordCount, 'товар', 'товара',
+          'товаров')]));
+
         if FCategoryW.HREF.Locate(ANotifyObj.URL, []) then
           FCategoryW.SetStatus(2); // Нашли список товаров
 
@@ -191,11 +222,17 @@ begin
       end;
     tsProducts:
       begin
-        // Если результат парсинга успешен
+        // Если результат парсинга не успешен
         if ProductParser.W.RecordCount = 0 then
+        begin
+          FLogDS.W.SetState(ANotifyObj.LogID,
+            'характеристики товара не найдены');
           Exit;
+        end;
 
         FProductsDS.W.AppendFrom(ProductParser.W);
+        FLogDS.W.SetState(ANotifyObj.LogID, 'характеристики товара найдены');
+
         // Если есть что загружать и сейчас не идёт загрузка
         if (Status = Runing) and (FProductW.DataSet.RecordCount > 0) and
           (not DownloadManagerEx.Downloading) then
@@ -212,22 +249,24 @@ end;
 
 procedure TWebGrabber.DoBeforeLoad(Sender: TObject);
 var
+  ALogID: Integer;
   PM: TParserManager;
 begin
+  ALogID := 0;
   PM := Sender as TParserManager;
   case FThreadStatus of
     tsCategory:
-      FLog.Add(Format('%s - %s', [GetCategoryPath(PM.ParentID),
-        'поиск подкатегорий']));
+      ALogID := FLogDS.W.Add(GetCategoryPath(PM.ParentID),
+        'поиск подкатегорий');
     tsProductList:
-      FLog.Add(Format('%s - %s', [GetCategoryPath(PM.ParentID),
-        'поиск товаров']));
+      ALogID := FLogDS.W.Add(GetCategoryPath(PM.ParentID), 'поиск товаров');
     tsProducts:
-      FLog.Add(Format('%s - %s',
-        [GetCategoryPath(FProductListW.ParentID.F.AsInteger) + '\' +
-        FProductListW.Caption.F.AsString, 'получаем характеристики товара']));
+      ALogID := FLogDS.W.Add(GetCategoryPath(FProductListW.ParentID.F.AsInteger)
+        + '\' + FProductListW.Caption.F.AsString,
+        'получаем характеристики товара');
   end;
-
+  if ALogID > 0 then
+    PM.LogID := ALogID;
 end;
 
 procedure TWebGrabber.DoOnParseComplete(Sender: TObject);
@@ -239,6 +278,14 @@ begin
   case FThreadStatus of
     tsCategory:
       begin
+        // Если в ходе парсинга возникли ошибки
+        if PM.Errors.Count > 0 then
+        begin
+          // Пробуем запустить парсинг ещё раз
+          StartCategoryParsing(PM.ParentID);
+          Exit;
+        end;
+
         FCategoryW.DataSet.Filtered := False;
         // Переходим на ту категорию, содержимое которой парсили
         FCategoryW.ID.Locate(PM.ParentID, [], True);
@@ -259,6 +306,14 @@ begin
       end;
     tsProductList:
       begin
+        // Если в ходе парсинга возникли ошибки
+        if PM.Errors.Count > 0 then
+        begin
+          // Пробуем запустить парсинг ещё раз
+          StartProductListParsing(PM.ParentID);
+          Exit;
+        end;
+
         FCategoryW.DataSet.Filtered := False;
 
         // Переходим на ту категорию, содержимое которой парсили
@@ -287,6 +342,14 @@ begin
       end;
     tsProducts:
       begin
+        // Если в ходе парсинга возникли ошибки
+        if PM.Errors.Count > 0 then
+        begin
+          // Пробуем запустить парсинг ещё раз
+          StartProductParsing(PM.ParentID);
+          Exit;
+        end;
+
         // Если ещё есть необработанные записи о товарах
         if (FProductListW.DataSet.RecordCount > 0) then
           StartProductParsing(FProductListW.ID.F.AsInteger)
@@ -309,7 +372,15 @@ var
   AErrorNotify: TErrorNotify;
 begin
   AErrorNotify := Sender as TErrorNotify;
-  FLog.Add(Format('%s %s', [AErrorNotify.URL, AErrorNotify.ErrorMessage]));
+  FLogDS.W.SetState(AErrorNotify.LogID, AErrorNotify.ErrorMessage);
+
+  with FErrorDS.W do
+  begin
+    TryAppend;
+    URL.F.AsString := AErrorNotify.URL;
+    ErrorText.F.AsString := AErrorNotify.ErrorMessage;
+    TryPost;
+  end;
 end;
 
 function TWebGrabber.GetCategoryParser: TCategoryParser;
@@ -361,6 +432,11 @@ end;
 function TWebGrabber.GetFinalW: TFinalW;
 begin
   Result := FFinalDataSet.W;
+end;
+
+function TWebGrabber.GetLogW: TLogW;
+begin
+  Result := FLogDS.W;
 end;
 
 function TWebGrabber.GetPageParser: TPageParser;
@@ -453,7 +529,10 @@ begin
   end;
 
   Assert(FProductW.Status.F.AsInteger = 0);
-  FProductW.SetStatus(1); // Загрузили документацию
+  FProductW.SetStatus(1);
+  // Загрузили документацию
+
+  FLogDS.W.SetState(FDownloadLogID, 'докуметация успешно загружена');
 
   // Если продолжать загрузку не надо!
   if not CheckRunning then
@@ -474,7 +553,52 @@ begin
   FErrorDS.W.TryAppend;
   FErrorDS.W.URL.F.AsString := ADE.URL;
   FErrorDS.W.ErrorText.F.AsString := ADE.ErrorMessage;
+  FErrorDS.W.FileName.F.AsString := ADE.FileName;
   FErrorDS.W.TryPost;
+
+  Assert(FProductW.Status.F.AsInteger = 0);
+
+  FProductW.TryEdit;
+
+  if FProductW.ImageFileName.F.AsString = ADE.FileName then
+    FProductW.ImageFileName.F.AsString := '';
+
+  if FProductW.SpecificationFileName.F.AsString = ADE.FileName then
+    FProductW.SpecificationFileName.F.AsString := '';
+
+  if FProductW.DrawingFileName.F.AsString = ADE.FileName then
+    FProductW.DrawingFileName.F.AsString := '';
+
+  FProductW.TryPost;
+
+  FLogDS.W.SetState(FDownloadLogID, 'Ошибка при загрузке');
+end;
+
+procedure TWebGrabber.SaveState;
+begin
+  Assert(FStatus = Stoped);
+  FLogDS.Save;
+  FCategoryDS.Save;
+  FProductListDS.Save;
+  FProductsDS.Save;
+  FErrorDS.Save;
+  FFinalDataSet.Save;
+end;
+
+procedure TWebGrabber.LoadState;
+begin
+  Assert(FStatus = Stoped);
+  FWebGrabberState.Saver.Load;
+  FCategoryDS.ID := FWebGrabberState.MaxID;
+  Assert(FProductListDS.ID = FWebGrabberState.MaxID);
+  Assert(FProductsDS.ID = FWebGrabberState.MaxID);
+  FLogDS.ID := FWebGrabberState.MaxID;
+  FLogDS.Load;
+  FCategoryDS.Load;
+  FProductListDS.Load;
+  FProductsDS.Load;
+  FErrorDS.Load;
+  FFinalDataSet.Load;
 end;
 
 procedure TWebGrabber.SetStatus(const Value: TStatus);
@@ -509,11 +633,16 @@ begin
 
   FThreadStatus := tsCategory;
 
-  FWebGrabberState.Save(FThreadStatus, AID);
+  FWebGrabberState.Save(FThreadStatus, AID, FCategoryDS.ID);
+
+  if FErrorDS.W.HaveManyErrors then
+    OnManyErrors.CallEventHandlers(Self);
 
   // Если продолжать не надо
   if not CheckRunning then
     Exit;
+
+
 
   // Запускаем парсер категорий в потоке
   ParserManager.Start(FCategoryW.HREF.F.AsString, FCategoryW.ID.F.AsInteger,
@@ -578,9 +707,9 @@ begin
     begin
       FProductListDS.W.LocateByPK(FProductW.ParentID.F.AsInteger, True);
 
-      FLog.Add(Format('%s - %s',
-        [GetCategoryPath(FProductListDS.W.ParentID.F.AsInteger) + '\' +
-        FProductListDS.W.Caption.F.AsString, 'загружаем документацию']));
+      FDownloadLogID :=
+        FLogDS.W.Add(GetCategoryPath(FProductListDS.W.ParentID.F.AsInteger) +
+        '\' + FProductListDS.W.Caption.F.AsString, 'загружаем документацию');
 
       // FThreadStatus := tsDownloadFiles;
       DownloadManagerEx.StartDownload(AIDProduct, L.ToArray)
@@ -599,7 +728,7 @@ end;
 
 procedure TWebGrabber.StartGrab;
 begin
-  FLog.Clear;
+  FLogDS.EmptyDataSet;
   FCategoryDS.EmptyDataSet;
   FProductListDS.EmptyDataSet;
   FProductsDS.EmptyDataSet;
@@ -619,6 +748,9 @@ end;
 
 procedure TWebGrabber.StartProductListParsing(AID: Integer);
 begin
+  if FErrorDS.W.HaveManyErrors then
+    OnManyErrors.CallEventHandlers(Self);
+
   // Если продолжать не надо
   if not CheckRunning then
     Exit;
@@ -628,7 +760,7 @@ begin
 
   FThreadStatus := tsProductList;
 
-  FWebGrabberState.Save(FThreadStatus, AID);
+  FWebGrabberState.Save(FThreadStatus, AID, FProductListDS.ID);
 
   if not CheckRunning then
     Exit;
@@ -649,7 +781,10 @@ begin
 
   FThreadStatus := tsProducts;
 
-  FWebGrabberState.Save(FThreadStatus, AID);
+  FWebGrabberState.Save(FThreadStatus, AID, FProductsDS.ID);
+
+  if FErrorDS.W.HaveManyErrors then
+    OnManyErrors.CallEventHandlers(Self);
 
   if not CheckRunning then
     Exit;

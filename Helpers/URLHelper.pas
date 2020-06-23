@@ -4,10 +4,12 @@ interface
 
 type
   TURLHelper = class(TObject)
+  private
   protected
   public
     class function GetAbsoluteURL(AURL: string; const href: string)
       : string; static;
+    class function GetURL(const href: string): string; static;
   end;
 
 implementation
@@ -22,12 +24,7 @@ var
   URI: TIdURI;
   URI2: TIdURI;
 begin
-  S := href;
-
-  if S.StartsWith('about:') then
-    S := S.Substring(6);
-  if S.StartsWith('blank') then
-    S := S.Substring(5);
+  S := GetURL(href);
 
   URI := TIdURI.Create(AURL);
   URI2 := TIdURI.Create(S);
@@ -46,6 +43,16 @@ begin
     FreeAndNil(URI);
     FreeAndNil(URI2);
   end;
+end;
+
+class function TURLHelper.GetURL(const href: string): string;
+begin
+  Result := href;
+
+  if Result.StartsWith('about:') then
+    Result := Result.Substring(6);
+  if Result.StartsWith('blank') then
+    Result := Result.Substring(5);
 end;
 
 end.

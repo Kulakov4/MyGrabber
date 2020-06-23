@@ -5,6 +5,10 @@ inherited ViewFinal: TViewFinal
     ExplicitTop = 28
     ExplicitHeight = 444
   end
+  inherited StatusBar: TStatusBar
+    SimplePanel = True
+    Visible = True
+  end
   inherited dxBarManager: TdxBarManager
     Font.Charset = RUSSIAN_CHARSET
     Font.Name = 'Tahoma'

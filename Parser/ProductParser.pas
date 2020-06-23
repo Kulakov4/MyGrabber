@@ -22,7 +22,7 @@ type
 implementation
 
 uses
-  System.Variants, System.SysUtils;
+  System.Variants, System.SysUtils, URLHelper;
 
 constructor TProductParser.Create(AOwner: TComponent);
 begin
@@ -42,7 +42,7 @@ var
   AList: TArray<IHTMLElement>;
   ADataDownload: OleVariant;
   ADIV: TArray<IHTMLElement>;
-  AFileName: string;
+  AFileNameURL: string;
   LI: IHTMLElement;
   AHTMLImgElement: IHTMLImgElement;
   AIMG: TArray<IHTMLElement>;
@@ -74,7 +74,8 @@ begin
     if Length(AIMG) > 0 then
     begin
       AHTMLImgElement := AIMG[0] as IHTMLImgElement;
-      FProductsDS.W.ImageURL.F.AsString := AHTMLImgElement.src;
+      FProductsDS.W.ImageURL.F.AsString :=
+        TURLHelper.GetURL(AHTMLImgElement.src);
     end;
 
     // Получаем блок с артикулом
@@ -105,20 +106,22 @@ begin
         if VarIsNull(ADataDownload) then
           Continue;
 
-        AFileName := ADataDownload;
+        AFileNameURL := ADataDownload;
+
+        AFileNameURL := TURLHelper.GetURL(AFileNameURL);
 
         // На мужну только PDF-ки
-        if not AFileName.EndsWith('.pdf', True) then
+        if not AFileNameURL.EndsWith('.pdf', True) then
           Continue;
 
         SPAN := TMyHTMLParser.Parse(LI.all as IHTMLElementCollection, 'SPAN',
           'downloads-list-item-block__titel', 1);
 
         if SPAN[0].innerText = 'Документация' then
-          FProductsDS.W.SpecificationURL.F.AsString := AFileName;
+          FProductsDS.W.SpecificationURL.F.AsString := AFileNameURL;
 
         if SPAN[0].innerText = 'Чертёж' then
-          FProductsDS.W.DrawingURL.F.AsString := AFileName;
+          FProductsDS.W.DrawingURL.F.AsString := AFileNameURL;
 
       end;
 

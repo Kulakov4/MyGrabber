@@ -41,8 +41,6 @@ var
   AHTMLElement: IHTMLElement;
   AIHTMLAnchorElement: IHTMLAnchorElement;
   B: TArray<IHTMLElement>;
-  ih: WideString;
-  it: WideString;
 begin
   Assert(AHTMLDocument <> nil);
   Assert(not AURL.IsEmpty);
@@ -59,10 +57,7 @@ begin
   for AHTMLElement in A do
   begin
     B := TMyHTMLParser.Parse(AHTMLElement.all as IHTMLElementCollection, 'P',
-      'category-teaser__title', 1);
-
-    ih := B[0].innerHTML;
-    it := B[0].innerText;
+      'category-teaser__title2', 1);
 
     AIHTMLAnchorElement := AHTMLElement as IHTMLAnchorElement;
 

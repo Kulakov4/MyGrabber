@@ -21,16 +21,21 @@ type
     FID: Integer;
     procedure Do_AfterInsert(Sender: TObject);
   protected
+    FFileName: string;
     function CreateWrap: TParserW; virtual;
   public
     constructor Create(AOwner: TComponent); override;
+    procedure Save;
+    procedure Load;
+    class property ID: Integer read FID write FID;
     property ParserW: TParserW read FParserW;
   end;
 
 implementation
 
 uses
-  NotifyEvents;
+  NotifyEvents, System.IOUtils, AppDataDirHelper, System.SysUtils,
+  FireDAC.Comp.DataSet, FireDAC.Stan.Intf;
 
 constructor TParserW.Create(AOwner: TComponent);
 begin
@@ -56,6 +61,18 @@ begin
   // Заполняем поле ID
   Inc(FID);
   ParserW.ID.F.AsInteger := FID;
+end;
+
+procedure TParserDS.Save;
+begin
+  Assert(not FFileName.IsEmpty);
+  SaveToFile(TPath.Combine(TMyDir.AppDataDir, FFileName), sfBinary);
+end;
+
+procedure TParserDS.Load;
+begin
+  Assert(not FFileName.IsEmpty);
+  LoadFromFile(TPath.Combine(TMyDir.AppDataDir, FFileName), sfBinary);
 end;
 
 end.

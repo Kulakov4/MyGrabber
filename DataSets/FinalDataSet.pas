@@ -87,6 +87,8 @@ begin
   FieldDefs.Add(W.TemperatureRange.FieldName, ftWideString, 50);
 
   CreateDataSet;
+
+  FFileName := 'Final.dat';
 end;
 
 function TFinalDataSet.CreateWrap: TParserW;

@@ -95,6 +95,7 @@ begin
 
   CreateDataSet;
 
+  FFileName := 'Category.dat';
 end;
 
 function TCategoryDS.CreateWrap: TParserW;

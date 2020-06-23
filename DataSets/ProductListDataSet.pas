@@ -81,6 +81,8 @@ begin
   FieldDefs.Add(W.Status.FieldName, ftInteger);
 
   CreateDataSet;
+
+  FFileName := 'ProductList.dat';
 end;
 
 function TProductListDS.CreateWrap: TParserW;

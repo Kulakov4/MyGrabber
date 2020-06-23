@@ -13,22 +13,21 @@ type
     IdHTTP: TIdHTTP;
   strict private
   private
-  class var
-    FSingleInstance: TWebDM;
+    class var FSingleInstance: TWebDM;
     { Private declarations }
   public
     destructor Destroy; override;
     class function Instance: TWebDM; static;
     function Load(const AURL: String): String; overload; stdcall;
-    procedure Load(const AURL: String; AResponseContent: TStream); overload;
-        stdcall;
+    procedure Load(const AURL: String; AResponseContent: TStream);
+      overload; stdcall;
     { Public declarations }
   end;
 
 implementation
 
 uses
-  System.SyncObjs;
+  System.SyncObjs, IdException;
 
 {%CLASSGROUP 'Vcl.Controls.TControl'}
 {$R *.dfm}
@@ -59,8 +58,17 @@ function TWebDM.Load(const AURL: String): String;
 begin
   Assert(AURL <> '');
   IdHTTP.HandleRedirects := true;
-  // Загружаем в html как Unicode строку
-  Result := IdHTTP.Get(AURL);
+  IdHTTP.ReadTimeout := 15000;
+  IdHTTP.ConnectTimeout := 15000;
+  try
+    // Загружаем в html как Unicode строку
+    Result := IdHTTP.Get(AURL);
+  except
+    On E: EIdException do
+    begin
+      raise Exception.Create(E.Message);
+    end;
+  end;
 end;
 
 procedure TWebDM.Load(const AURL: String; AResponseContent: TStream);
