@@ -88,7 +88,7 @@ begin
 
   CreateDataSet;
 
-  FFileName := 'Final.dat';
+  FileName := 'Final.dat';
 end;
 
 function TFinalDataSet.CreateWrap: TParserW;

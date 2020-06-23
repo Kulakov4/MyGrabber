@@ -15,10 +15,16 @@ uses
 
 class function TMyDir.AppDataDir: string;
 begin
+(*
   Result := TPath.GetHomePath;
 
   Result := TPath.Combine(Result, TPath.GetFileNameWithoutExtension
     (GetModuleName(0)));
+*)
+
+  Result := TPath.GetDirectoryName(GetModuleName(0));
+
+  Result := TPath.Combine(Result, 'DAT');
 
   TDirectory.CreateDirectory(Result);
 end;

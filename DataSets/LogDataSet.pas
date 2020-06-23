@@ -73,7 +73,7 @@ begin
 
   CreateDataSet;
 
-  FFileName := 'Log.dat';
+  FileName := 'Log.dat';
 end;
 
 function TLogDS.CreateWrap: TParserW;

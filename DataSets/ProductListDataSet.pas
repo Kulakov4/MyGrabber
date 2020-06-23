@@ -82,7 +82,7 @@ begin
 
   CreateDataSet;
 
-  FFileName := 'ProductList.dat';
+  FileName := 'ProductList.dat';
 end;
 
 function TProductListDS.CreateWrap: TParserW;

@@ -52,7 +52,7 @@ begin
 
   CreateDataSet;
 
-  FFileName := 'Errors.dat';
+  FileName := 'Errors.dat';
 end;
 
 function TErrorDS.CreateWrap: TParserW;

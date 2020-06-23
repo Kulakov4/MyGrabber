@@ -118,6 +118,8 @@ begin
   FStatus := Stoped;
 
   FWebGrabberState := TWebGrabberState.Create(Self);
+
+  LoadState;
 end;
 
 function TWebGrabber.CheckRunning: Boolean;
@@ -588,6 +590,16 @@ end;
 procedure TWebGrabber.LoadState;
 begin
   Assert(FStatus = Stoped);
+
+  if not TFile.Exists(FWebGrabberState.FileName) then
+    Exit;
+
+  if not TFile.Exists(FLogDS.FullFileName) then
+    Exit;
+
+  if not TFile.Exists(FCategoryDS.FullFileName) then
+    Exit;
+
   FWebGrabberState.Saver.Load;
   FCategoryDS.ID := FWebGrabberState.MaxID;
   Assert(FProductListDS.ID = FWebGrabberState.MaxID);
@@ -606,6 +618,7 @@ begin
   FStatus := Value;
   if FStatus = Stoped then
   begin
+    SaveState;
   end;
 
   if FStatus = Runing then

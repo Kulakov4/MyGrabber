@@ -20,13 +20,14 @@ type
   class var
     FID: Integer;
     procedure Do_AfterInsert(Sender: TObject);
+    function GetFullFileName: string;
   protected
-    FFileName: string;
     function CreateWrap: TParserW; virtual;
   public
     constructor Create(AOwner: TComponent); override;
     procedure Save;
     procedure Load;
+    property FullFileName: string read GetFullFileName;
     class property ID: Integer read FID write FID;
     property ParserW: TParserW read FParserW;
   end;
@@ -63,16 +64,21 @@ begin
   ParserW.ID.F.AsInteger := FID;
 end;
 
+function TParserDS.GetFullFileName: string;
+begin
+  Result := TPath.Combine(TMyDir.AppDataDir, FileName);
+end;
+
 procedure TParserDS.Save;
 begin
-  Assert(not FFileName.IsEmpty);
-  SaveToFile(TPath.Combine(TMyDir.AppDataDir, FFileName), sfBinary);
+  Assert(not FileName.IsEmpty);
+  SaveToFile(FullFileName, sfBinary);
 end;
 
 procedure TParserDS.Load;
 begin
-  Assert(not FFileName.IsEmpty);
-  LoadFromFile(TPath.Combine(TMyDir.AppDataDir, FFileName), sfBinary);
+  Assert(not FileName.IsEmpty);
+  LoadFromFile(FullFileName, sfBinary);
 end;
 
 end.
