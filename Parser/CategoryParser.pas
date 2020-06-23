@@ -57,7 +57,7 @@ begin
   for AHTMLElement in A do
   begin
     B := TMyHTMLParser.Parse(AHTMLElement.all as IHTMLElementCollection, 'P',
-      'category-teaser__title2', 1);
+      'category-teaser__title', 1);
 
     AIHTMLAnchorElement := AHTMLElement as IHTMLAnchorElement;
 

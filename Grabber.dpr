@@ -1,4 +1,4 @@
-program IHTMLTest;
+program Grabber;
 
 uses
   Vcl.Forms,
