@@ -38,7 +38,7 @@ uses
   FinalView in 'Views\FinalView.pas' {ViewFinal: TFrame},
   WebGrabberState in 'WebGrabberState.pas',
   saver in 'saver.pas',
-  AppDataDirHelper in 'Helpers\AppDataDirHelper.pas',
+  MyDir in 'Helpers\MyDir.pas',
   LogDataSet in 'DataSets\LogDataSet.pas',
   NounUnit in 'Helpers\NounUnit.pas';
 

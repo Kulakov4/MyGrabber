@@ -89,7 +89,7 @@ type
 implementation
 
 uses
-  System.IOUtils, AppDataDirHelper, NounUnit;
+  System.IOUtils, MyDir, NounUnit;
 
 constructor TWebGrabber.Create(AOwner: TComponent);
 begin

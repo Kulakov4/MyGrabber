@@ -23,7 +23,7 @@ type
 implementation
 
 uses
-  System.SysUtils, System.IOUtils, AppDataDirHelper;
+  System.SysUtils, System.IOUtils, MyDir;
 
 constructor TWebGrabberState.Create(AOwner: TComponent);
 begin

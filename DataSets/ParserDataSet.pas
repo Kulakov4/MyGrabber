@@ -34,7 +34,7 @@ type
 implementation
 
 uses
-  NotifyEvents, System.IOUtils, AppDataDirHelper, System.SysUtils,
+  NotifyEvents, System.IOUtils, MyDir, System.SysUtils,
   FireDAC.Comp.DataSet, FireDAC.Stan.Intf;
 
 constructor TParserW.Create(AOwner: TComponent);

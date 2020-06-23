@@ -145,7 +145,7 @@
         </DCCReference>
         <DCCReference Include="WebGrabberState.pas"/>
         <DCCReference Include="saver.pas"/>
-        <DCCReference Include="Helpers\AppDataDirHelper.pas"/>
+        <DCCReference Include="Helpers\MyDir.pas"/>
         <DCCReference Include="DataSets\LogDataSet.pas"/>
         <DCCReference Include="Helpers\NounUnit.pas"/>
         <BuildConfiguration Include="Release">
