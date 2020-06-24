@@ -11,7 +11,9 @@ uses
   GridFrame, dxBarBuiltInMenu, System.Actions, Vcl.ActnList, cxClasses, dxBar,
   cxPC, PageParser, cxLabel, System.Generics.Collections, Status, LogInterface,
   WebGrabber, NotifyEvents, FinalView, FireDAC.Stan.StorageJSON,
-  FireDAC.Stan.StorageBin;
+  FireDAC.Stan.StorageBin, Settings;
+
+{$DEFINE NO_MYDEBUG}
 
 const
   WM_NEED_STOP = WM_USER + 1;
@@ -34,10 +36,8 @@ type
     actContinueGrab: TAction;
     dxBarButton2: TdxBarButton;
     dxBarButton3: TdxBarButton;
-    dxBarButton4: TdxBarButton;
     actSave: TAction;
     actLoad: TAction;
-    dxBarButton5: TdxBarButton;
     FDStanStorageJSONLink1: TFDStanStorageJSONLink;
     FDStanStorageBinLink1: TFDStanStorageBinLink;
     procedure actContinueGrabExecute(Sender: TObject);
@@ -50,9 +50,12 @@ type
   strict private
   private
     FClosing: Boolean;
+    FSettings: TWebGrabberSettings;
+{$IFDEF MYDEBUG}
     FViewCategory: TfrmGrid;
     FViewProducts: TfrmGrid;
     FViewProductList: TfrmGrid;
+{$ENDIF}
     FViewFinal: TViewFinal;
     FViewErrors: TfrmGrid;
     FViewLog: TfrmGrid;
@@ -60,6 +63,7 @@ type
     procedure AfterFinalPost(Sender: TObject);
     procedure AfterErrorPost(Sender: TObject);
     procedure AfterLogPost(Sender: TObject);
+    procedure DoOnGrabComplete(Sender: TObject);
     procedure DoOnManyErrors(Sender: TObject);
     procedure DoOnStatusChange(Sender: TObject);
     { Private declarations }
@@ -74,11 +78,15 @@ var
 
 implementation
 
+uses
+  SettingsForm;
+
 {$R *.dfm}
 
 procedure TMainForm.actContinueGrabExecute(Sender: TObject);
 begin
-  FWebGrabber.ContinueGrab;
+  if not FWebGrabber.ContinueGrab then
+    Exit;
   actStartGrab.Visible := False;
   actStopGrab.Visible := True;
 end;
@@ -89,9 +97,11 @@ begin
   FViewLog.MainView.ApplyBestFit;
   FViewFinal.MainView.ApplyBestFit;
   FViewErrors.MainView.ApplyBestFit;
+{$IFDEF MYDEBUG}
   FViewCategory.MainView.ApplyBestFit;
   FViewProducts.MainView.ApplyBestFit;
   FViewProductList.MainView.ApplyBestFit;
+{$ENDIF}
 end;
 
 procedure TMainForm.actSaveExecute(Sender: TObject);
@@ -101,7 +111,15 @@ end;
 
 procedure TMainForm.actStartGrabExecute(Sender: TObject);
 begin
-  FWebGrabber.StartGrab;
+  if FSettings <> nil then
+    FreeAndNil(FSettings);
+
+  FSettings := TWebGrabberSettings.Create(nil);
+
+  if not TfrmSettings.ShowAsModal(FSettings) then
+    Exit;
+
+  FWebGrabber.StartGrab(FSettings);
   actContinueGrab.Visible := False;
   actStopGrab.Visible := True;
 end;
@@ -125,6 +143,11 @@ end;
 procedure TMainForm.AfterLogPost(Sender: TObject);
 begin
   FViewLog.MainView.ApplyBestFit;
+end;
+
+procedure TMainForm.DoOnGrabComplete(Sender: TObject);
+begin
+  ShowMessage('Сбор информации закончен');
 end;
 
 procedure TMainForm.DoOnManyErrors(Sender: TObject);
@@ -182,54 +205,61 @@ end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
+{$IFNDEF MYDEBUG}
+  cxTabSheetCategory.Free;
+  cxTabSheetProductList.Free;
+  cxTabSheetProducts.Free;
+{$ENDIF}
+  FWebGrabber := TWebGrabber.Create(Self);
+  TNotifyEventWrap.Create(FWebGrabber.OnStatusChange, DoOnStatusChange);
+  TNotifyEventWrap.Create(FWebGrabber.OnManyErrors, DoOnManyErrors);
+  TNotifyEventWrap.Create(FWebGrabber.OnGrabComplete, DoOnGrabComplete);
+
   FViewLog := TfrmGrid.Create(Self);
   FViewLog.Name := 'ViewLog';
   FViewLog.Place(cxTabSheetLog);
+  FViewLog.DSWrap := FWebGrabber.LogW;
+  TNotifyEventWrap.Create(FWebGrabber.LogW.AfterPostM, AfterLogPost,
+    FWebGrabber.LogW.EventList);
+  AfterLogPost(nil);
 
+{$IFDEF MYDEBUG}
   FViewCategory := TfrmGrid.Create(Self);
   FViewCategory.Name := 'ViewCategory1';
   FViewCategory.Place(cxTabSheetCategory);
+  FViewCategory.DSWrap := FWebGrabber.CategoryW;
 
   FViewProductList := TfrmGrid.Create(Self);
   FViewProductList.Name := 'ViewProductList1';
   FViewProductList.Place(cxTabSheetProductList);
+  FViewProductList.DSWrap := FWebGrabber.ProductListW;
 
   FViewProducts := TfrmGrid.Create(Self);
   FViewProducts.Name := 'ViewProducts';
   FViewProducts.Place(cxTabSheetProducts);
+  FViewProducts.DSWrap := FWebGrabber.ProductW;
+{$ENDIF}
 
   FViewFinal := TViewFinal.Create(Self);
   FViewFinal.Place(cxTabSheetFinal);
+  FViewFinal.W := FWebGrabber.FinalW;
+  TNotifyEventWrap.Create(FWebGrabber.FinalW.AfterPostM, AfterFinalPost,
+    FWebGrabber.FinalW.EventList);
+  AfterFinalPost(nil);
 
   FViewErrors := TfrmGrid.Create(Self);
   FViewErrors.Name := 'ViewErrors';
   FViewErrors.Place(cxTabSheetErrors);
-
-  FWebGrabber := TWebGrabber.Create(Self);
-  TNotifyEventWrap.Create(FWebGrabber.OnStatusChange, DoOnStatusChange);
-  TNotifyEventWrap.Create(FWebGrabber.OnManyErrors, DoOnManyErrors);
-
-  FViewLog.DSWrap := FWebGrabber.LogW;
-
-  FViewCategory.DSWrap := FWebGrabber.CategoryW;
-
-  FViewProductList.DSWrap := FWebGrabber.ProductListW;
-
-  FViewProducts.DSWrap := FWebGrabber.ProductW;
-
-  FViewFinal.W := FWebGrabber.FinalW;
-  TNotifyEventWrap.Create(FWebGrabber.FinalW.AfterPostM, AfterFinalPost,
-    FWebGrabber.FinalW.EventList);
-
   FViewErrors.DSWrap := FWebGrabber.ErrorW;
   TNotifyEventWrap.Create(FWebGrabber.ErrorW.AfterPostM, AfterErrorPost,
     FWebGrabber.ErrorW.EventList);
-
-  TNotifyEventWrap.Create(FWebGrabber.LogW.AfterPostM, AfterLogPost,
-    FWebGrabber.logW.EventList);
+  AfterErrorPost(nil);
 
   actStopGrab.Enabled := False;
   actStopGrab.Visible := False;
+
+  // Продолжить можем если найдено предыдущее состояние
+  actContinueGrab.Enabled := FWebGrabber.StateExists;
 end;
 
 procedure TMainForm.NeedStopMsg(var Message: TMessage);

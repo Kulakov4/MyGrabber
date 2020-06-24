@@ -145,7 +145,19 @@ begin
 
       // Загружаем страницу
       AHTML := TWebDM.Instance.Load(APageURL);
-
+(*
+      if APageURL = 'https://b2b.harting.com/ebusiness/ru/Han-3A-%D0%BA%D0%BE%D0%B6%D1%83%D1%85-%D0%B1%D0%BB%D0%BE%D1%87%D0%BD%D1%8B%D0%B9-%D1%83%D0%B3%D0%BB%D0%BE%D0%B2%D0%BE%D0%B9/09200030811?detail=true&sewConfig=false'
+      then
+      begin
+        sl := TStringList.Create;
+        try
+          sl.Add(AHTML);
+          sl.SaveToFile('1.html');
+        finally
+          FreeAndNil(sl);
+        end;
+      end;
+*)
       // Формируем HTML документ
       CoInitialize(nil);
       AHTMLDocument := coHTMLDocument.Create as IHTMLDocument2;

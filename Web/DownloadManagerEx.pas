@@ -11,11 +11,13 @@ type
   private
     FErrorMessage: String;
     FFileName: String;
+    FID: Integer;
     FURL: String;
   public
-    constructor Create(const AURL, AFileName, AErrorMessage: string);
+    constructor Create(const AURL, AFileName, AErrorMessage: string; AID: Integer);
     property ErrorMessage: String read FErrorMessage;
     property FileName: String read FFileName;
+    property ID: Integer read FID;
     property URL: String read FURL;
   end;
 
@@ -37,7 +39,6 @@ type
     function CreateTask(const AURL, AFileName: String;
       ATaskIndex: Integer): ITask;
     procedure DoOnDownloadComplete(ATaskIndex: Integer);
-    procedure DoOnError(ATaskIndex, AErrorIndex: Integer);
     procedure FreeErrors;
     function GetOnDownloadComplete: TNotifyEventsEx;
     function GetDownloading: Boolean;
@@ -50,6 +51,7 @@ type
     procedure StartDownload(AID: Integer; ADMRecs: TArray<TDMRec>);
     property ID: Integer read FID;
     property Downloading: Boolean read GetDownloading;
+    property ErrorList: TThreadList<TDownloadError> read FErrorList;
     property OnDownloadComplete: TNotifyEventsEx read GetOnDownloadComplete;
     property OnError: TNotifyEventsEx read GetOnError;
   end;
@@ -110,29 +112,6 @@ begin
   end;
 end;
 
-procedure TDownloadManagerEx.DoOnError(ATaskIndex, AErrorIndex: Integer);
-var
-  ADownloadError: TDownloadError;
-  AErrors: TList<TDownloadError>;
-begin
-  Assert(AErrorIndex >= 0);
-
-  // Извещаем о том, что произошла ошибка
-  if (FOnError <> nil) then
-  begin
-    AErrors := FErrorList.LockList;
-    try
-      Assert(AErrorIndex < AErrors.Count);
-      ADownloadError := AErrors[AErrorIndex];
-      FOnError.CallEventHandlers(ADownloadError);
-    finally
-      FErrorList.UnlockList;
-    end;
-  end;
-
-  DoOnDownloadComplete(ATaskIndex);
-end;
-
 procedure TDownloadManagerEx.FreeErrors;
 var
   ADownloadError: TDownloadError;
@@ -177,7 +156,7 @@ procedure TDownloadManagerEx.Main(const AURL, AFileName: String;
 ATaskIndex: Integer);
 var
   ADownloadError: TDownloadError;
-  AErrorIndex: Integer;
+//  AErrorIndex: Integer;
   ALoader: TWebLoader2;
   AMemoryStream: TMemoryStream;
 begin
@@ -206,9 +185,10 @@ begin
     on E: Exception do
     begin
       // Запоминаем ошибку
-      ADownloadError := TDownloadError.Create(AURL, AFileName, E.Message);
+      ADownloadError := TDownloadError.Create(AURL, AFileName, E.Message, FID);
       // Добавляем её в список ошибок
       FErrorList.Add(ADownloadError);
+{
       AErrorIndex := FErrorList.LockList.Count - 1;
       FErrorList.UnlockList;
 
@@ -217,7 +197,7 @@ begin
         begin
           DoOnError(ATaskIndex, AErrorIndex);
         end);
-
+}
     end;
   end;
 end;
@@ -254,11 +234,13 @@ begin
   FileName := AFileName;
 end;
 
-constructor TDownloadError.Create(const AURL, AFileName, AErrorMessage: string);
+constructor TDownloadError.Create(const AURL, AFileName, AErrorMessage: string;
+    AID: Integer);
 begin
   FURL := AURL;
   FFileName := AFileName;
   FErrorMessage := AErrorMessage;
+  FID := AID;
 end;
 
 end.

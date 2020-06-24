@@ -6,6 +6,7 @@ type
   TMyDir = class(TObject)
   public
     class function AppDataDir: string; static;
+    class function AppDir: string; static;
   end;
 
 implementation
@@ -27,6 +28,11 @@ begin
   Result := TPath.Combine(Result, 'DAT');
 
   TDirectory.CreateDirectory(Result);
+end;
+
+class function TMyDir.AppDir: string;
+begin
+  Result := TPath.GetDirectoryName(GetModuleName(0));
 end;
 
 end.

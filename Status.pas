@@ -4,7 +4,7 @@ interface
 
 Type
   TStatus = (Runing, Stoping, Stoped);
-  TThreadStatus = (tsCategory, tsProductList, tsProducts);
+  TThreadStatus = (tsCategory, tsProductList, tsProducts, tsComplete);
 
 implementation
 

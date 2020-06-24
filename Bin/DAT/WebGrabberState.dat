@@ -1,5 +1,6 @@
 object TWebGrabberState
-  ID = 68
-  MaxID = 473
+  DownloadDocs = True
+  ID = 127
+  MaxID = 517
   ThreadStatus = tsProducts
 end

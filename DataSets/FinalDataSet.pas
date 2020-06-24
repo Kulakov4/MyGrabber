@@ -19,6 +19,7 @@ type
     FProducer: TFieldWrap;
     FSpecification: TFieldWrap;
     FTemperatureRange: TFieldWrap;
+    procedure DoAfterInsert(Sender: TObject);
   public
     constructor Create(AOwner: TComponent); override;
     property Category2: TFieldWrap read FCategory2;
@@ -66,6 +67,13 @@ begin
   FDrawing := TFieldWrap.Create(Self, 'Drawing', 'Чертёж');
   FProducer := TFieldWrap.Create(Self, 'Producer', 'Производитель');
   FTemperatureRange := TFieldWrap.Create(Self, 'TemperatureRange', 'Температурный диапазон');
+
+  TNotifyEventWrap.Create(AfterInsert, DoAfterInsert, EventList);
+end;
+
+procedure TFinalW.DoAfterInsert(Sender: TObject);
+begin
+  Producer.F.AsString := 'HARTING';
 end;
 
 constructor TFinalDataSet.Create(AOwner: TComponent);

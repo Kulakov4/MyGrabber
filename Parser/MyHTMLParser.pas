@@ -23,6 +23,7 @@ class function TMyHTMLParser.Parse(AHTMLElementCollection
   : IHTMLElementCollection; const ATagName, AClassName: String;
   TestResult: Integer = 0): TArray<IHTMLElement>;
 var
+  ADocTagName: string;
   AElementClassName: string;
   AErrorText: string;
   AHTMLElement: IHTMLElement;
@@ -42,11 +43,12 @@ begin
       Assert(AHTMLElement <> nil);
       AElementClassName := AHTMLElement._className;
       AElementClassName := AElementClassName.Trim;
+      ADocTagName := AHTMLElement.tagName;
 
-      if (AHTMLElement.tagName = ATagName) and (AElementClassName = AClassName)
-      then
+      if String.CompareText(ADocTagName, ATagName) = 0 then
       begin
-        L.Add(AHTMLElement);
+        if (AElementClassName = AClassName) then
+          L.Add(AHTMLElement);
       end;
     end;
     Result := L.ToArray;

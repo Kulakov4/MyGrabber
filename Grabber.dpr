@@ -40,7 +40,9 @@ uses
   saver in 'saver.pas',
   MyDir in 'Helpers\MyDir.pas',
   LogDataSet in 'DataSets\LogDataSet.pas',
-  NounUnit in 'Helpers\NounUnit.pas';
+  NounUnit in 'Helpers\NounUnit.pas',
+  Settings in 'Settings.pas',
+  SettingsForm in 'Views\SettingsForm.pas' {frmSettings};
 
 {$R *.res}
 

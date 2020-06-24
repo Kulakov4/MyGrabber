@@ -13,7 +13,7 @@ uses
   Vcl.ActnList, cxClasses, dxBar, Vcl.ComCtrls, cxGridLevel, cxGridCustomView,
   cxGridCustomTableView, cxGridTableView, cxGridBandedTableView,
   cxGridDBBandedTableView, cxGrid, FinalDataSet, System.ImageList, Vcl.ImgList,
-  cxImageList;
+  cxImageList, cxDataControllerConditionalFormattingRulesManagerDialog;
 
 type
   TViewFinal = class(TfrmGrid)
@@ -27,7 +27,7 @@ type
     function GetFileName: string;
     function GetW: TFinalW;
     procedure SetW(const Value: TFinalW);
-    function ShowSaveDialog(const AFileName: string): Boolean;
+    function ShowSaveDialog(var AFileName: string): Boolean;
     { Private declarations }
   protected
     procedure InitColumns(AView: TcxGridDBBandedTableView); override;
@@ -41,7 +41,7 @@ type
 implementation
 
 uses
-  DialogUnit, NotifyEvents;
+  DialogUnit, NotifyEvents, System.IOUtils, MyDir;
 
 {$R *.dfm}
 
@@ -59,7 +59,7 @@ end;
 
 procedure TViewFinal.DoAfterPost(Sender: TObject);
 begin
-  StatusBar.SimpleText := Format('Всего %d товаров', [W.DataSet.RecordCount]);
+  StatusBar.SimpleText := Format('Всего товаров: %d', [W.DataSet.RecordCount]);
 end;
 
 function TViewFinal.GetclDescription: TcxGridDBBandedColumn;
@@ -79,8 +79,8 @@ var
 begin
   DecodeDate(Date, AYear, AMonth, ADay);
   DecodeTime(Time, AHour, AMin, ASec, AMSec);
-  Result := Format('Harting %4d-%2d-%2d %2d-%2d.xls',
-    [AYear, AMonth, ADay, AHour, AMin]);
+  Result := Format('Harting %.*d-%.*d-%.*d %.*d-%.*d.xls',
+    [4, AYear, 2, AMonth, 2, ADay, 2, AHour, 2, AMin]);
 end;
 
 function TViewFinal.GetW: TFinalW;
@@ -104,16 +104,19 @@ procedure TViewFinal.SetW(const Value: TFinalW);
 begin
   DSWrap := Value;
   TNotifyEventWrap.Create( DSWrap.AfterPostM, DoAfterPost, DSWrap.EventList );
+  DoAfterPost(nil);
 end;
 
-function TViewFinal.ShowSaveDialog(const AFileName: string): Boolean;
+function TViewFinal.ShowSaveDialog(var AFileName: string): Boolean;
 var
   ASaveDialog: TExcelFileSaveDialog;
 begin
   ASaveDialog := TExcelFileSaveDialog.Create(Self);
   try
+    ASaveDialog.InitialDir := TMyDir.AppDir;
     ASaveDialog.FileName := AFileName;
     Result := ASaveDialog.Execute(Application.MainForm.Handle);
+    AFileName := ASaveDialog.FileName;
   finally
     FreeAndNil(ASaveDialog)
   end;

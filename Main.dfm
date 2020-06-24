@@ -36,42 +36,22 @@ object MainForm: TMainForm
     object cxTabSheetCategory: TcxTabSheet
       Caption = #1050#1072#1090#1077#1075#1086#1088#1080#1080' '#1080' '#1087#1086#1076#1082#1072#1090#1077#1075#1086#1088#1080#1080
       ImageIndex = 0
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
     end
     object cxTabSheetProductList: TcxTabSheet
       Caption = #1057#1087#1080#1089#1082#1080' '#1090#1086#1074#1072#1088#1086#1074
       ImageIndex = 1
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
     end
     object cxTabSheetProducts: TcxTabSheet
       Caption = #1058#1086#1074#1072#1088#1099
       ImageIndex = 3
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
     end
     object cxTabSheetFinal: TcxTabSheet
       Caption = #1056#1077#1079#1091#1083#1100#1090#1072#1090
       ImageIndex = 4
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
     end
     object cxTabSheetErrors: TcxTabSheet
       Caption = #1054#1096#1080#1073#1082#1080
       ImageIndex = 5
-      ExplicitLeft = 0
-      ExplicitTop = 0
-      ExplicitWidth = 0
-      ExplicitHeight = 0
     end
   end
   object dxBarManager1: TdxBarManager
@@ -107,6 +87,11 @@ object MainForm: TMainForm
       FloatTop = 2
       FloatClientWidth = 0
       FloatClientHeight = 0
+      Font.Charset = RUSSIAN_CHARSET
+      Font.Color = clWindowText
+      Font.Height = -15
+      Font.Name = 'Tahoma'
+      Font.Style = []
       ItemLinks = <
         item
           Visible = True
@@ -119,18 +104,10 @@ object MainForm: TMainForm
         item
           Visible = True
           ItemName = 'dxBarButton3'
-        end
-        item
-          Visible = True
-          ItemName = 'dxBarButton4'
-        end
-        item
-          Visible = True
-          ItemName = 'dxBarButton5'
         end>
       OneOnRow = True
       Row = 0
-      UseOwnFont = False
+      UseOwnFont = True
       Visible = True
       WholeRow = False
     end
@@ -144,14 +121,6 @@ object MainForm: TMainForm
     end
     object dxBarButton3: TdxBarButton
       Action = actStopGrab
-      Category = 0
-    end
-    object dxBarButton4: TdxBarButton
-      Action = actSave
-      Category = 0
-    end
-    object dxBarButton5: TdxBarButton
-      Action = actLoad
       Category = 0
     end
   end
