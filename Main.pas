@@ -13,7 +13,7 @@ uses
   WebGrabber, NotifyEvents, FinalView, FireDAC.Stan.StorageJSON,
   FireDAC.Stan.StorageBin, Settings;
 
-{$DEFINE NO_MYDEBUG}
+{$DEFINE MYDEBUG}
 
 const
   WM_NEED_STOP = WM_USER + 1;
@@ -50,6 +50,8 @@ type
   strict private
   private
     FClosing: Boolean;
+    FLastFinalPostTime: TDateTime;
+    FLastLogPostTime: TDateTime;
     FSettings: TWebGrabberSettings;
 {$IFDEF MYDEBUG}
     FViewCategory: TfrmGrid;
@@ -131,7 +133,15 @@ begin
 end;
 
 procedure TMainForm.AfterFinalPost(Sender: TObject);
+var
+  T: TDateTime;
 begin
+  T := Now;
+
+  if T - FLastFinalPostTime < 60 then
+    Exit;
+
+  FLastFinalPostTime := T;
   FViewFinal.MainView.ApplyBestFit;
 end;
 
@@ -141,7 +151,15 @@ begin
 end;
 
 procedure TMainForm.AfterLogPost(Sender: TObject);
+var
+  T: TDateTime;
 begin
+  T := Now;
+
+  if T - FLastLogPostTime < 60 then
+    Exit;
+
+  FLastLogPostTime := T;
   FViewLog.MainView.ApplyBestFit;
 end;
 

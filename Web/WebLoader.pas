@@ -5,12 +5,16 @@ interface
 uses
   System.SysUtils, System.Classes, WebLoaderInterface, IdTCPConnection,
   IdTCPClient, IdHTTP, IdBaseComponent, IdComponent, IdIOHandler,
-  IdIOHandlerSocket, IdIOHandlerStack, IdSSL, IdSSLOpenSSL;
+  IdIOHandlerSocket, IdIOHandlerStack, IdSSL, IdSSLOpenSSL, IdCookie,
+  IdCookieManager;
 
 type
   TWebDM = class(TDataModule, IWebLoader)
     IdSSLIOHandlerSocketOpenSSL: TIdSSLIOHandlerSocketOpenSSL;
     IdHTTP: TIdHTTP;
+    IdCookieManager1: TIdCookieManager;
+    procedure IdCookieManager1NewCookie(ASender: TObject; ACookie: TIdCookie; var
+        VAccept: Boolean);
   strict private
   private
     class var FSingleInstance: TWebDM;
@@ -38,6 +42,12 @@ var
 destructor TWebDM.Destroy;
 begin
   inherited;
+end;
+
+procedure TWebDM.IdCookieManager1NewCookie(ASender: TObject; ACookie:
+    TIdCookie; var VAccept: Boolean);
+begin
+;
 end;
 
 class function TWebDM.Instance: TWebDM;
