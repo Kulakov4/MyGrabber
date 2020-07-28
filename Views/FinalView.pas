@@ -18,7 +18,6 @@ uses
 type
   TViewFinal = class(TfrmGrid)
     actSave: TAction;
-    cxImageList: TcxImageList;
     dxBarButton1: TdxBarButton;
     procedure actSaveExecute(Sender: TObject);
   private
@@ -53,6 +52,8 @@ begin
   AFileName := GetFileName;
   if not ShowSaveDialog(AFileName) then
     Exit;
+
+  MainView.ApplyBestFit;
 
   ExportViewToExcel(MainView, AFileName);
 end;

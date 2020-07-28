@@ -127,7 +127,7 @@ var
   AHTMLDocument: IHTMLDocument2;
   ANextPageAvailable: Boolean;
   APageURL: String;
-  sl: TStringList;
+//  sl: TStringList;
   V: Variant;
 begin
   try
@@ -184,7 +184,7 @@ begin
       TThread.Synchronize(TThread.CurrentThread,
         procedure()
         begin
-
+(*
           sl := TStringList.Create;
           try
             sl.Add(AHTML);
@@ -192,7 +192,7 @@ begin
           finally
             FreeAndNil(sl);
           end;
-
+*)
           NotifyError(APageURL, LogID, E.Message);
         end);
   end;

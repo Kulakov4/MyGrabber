@@ -73,7 +73,7 @@ end;
 
 procedure TfrmSettings.cxCheckBox2Click(Sender: TObject);
 begin
-  OnCheckBoxClick(Sender as TcxCheckBox, 'https://b2b.harting.com/ebusiness/en-gb/de/34260');
+  OnCheckBoxClick(Sender as TcxCheckBox, 'https://b2b.harting.com/ebusiness/ru/RFID/34260');
 end;
 
 procedure TfrmSettings.cxCheckBox3Click(Sender: TObject);

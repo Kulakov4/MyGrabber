@@ -39,7 +39,9 @@ end;
 procedure TWebGrabberState.Save(AThreadStatus: TThreadStatus; AID, AMaxID:
     Integer; ADownloadDocs: Boolean);
 begin
-  ID := AID;
+  if AID > 0 then
+    ID := AID;
+
   ThreadStatus := AThreadStatus;
   MaxID := AMaxID;
   DownloadDocs := ADownloadDocs;

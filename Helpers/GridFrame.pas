@@ -29,7 +29,7 @@ uses
   dxSkinXmas2008Blue, dxSkinscxPCPainter, dxSkinsdxBarPainter, cxDropDownEdit,
   System.Generics.Collections, DragHelper, GridSort,
   cxDataControllerConditionalFormattingRulesManagerDialog, dxBarBuiltInMenu,
-  DSWrap, NotifyEvents, dxDateRanges;
+  DSWrap, NotifyEvents, dxDateRanges, System.ImageList, Vcl.ImgList, cxImageList;
 
 const
   WM_MY_APPLY_BEST_FIT = WM_USER + 109;
@@ -79,6 +79,10 @@ type
     actDeleteEx: TAction;
     cxStyleRepository: TcxStyleRepository;
     cxHeaderStyle: TcxStyle;
+    actApplyBestFit: TAction;
+    cxImageList10: TcxImageList;
+    dxBarButton2: TdxBarButton;
+    procedure actApplyBestFitExecute(Sender: TObject);
     procedure actCopyToClipboardExecute(Sender: TObject);
     procedure actDeleteExExecute(Sender: TObject);
     procedure cxGridDBBandedTableViewCustomDrawColumnHeader
@@ -321,6 +325,11 @@ begin
   FreeAndNil(FGridSort);
   FreeAndNil(FDeleteMessages);
   inherited;
+end;
+
+procedure TfrmGrid.actApplyBestFitExecute(Sender: TObject);
+begin
+  MainView.ApplyBestFit;
 end;
 
 procedure TfrmGrid.actCopyToClipboardExecute(Sender: TObject);

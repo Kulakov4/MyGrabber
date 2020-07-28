@@ -24,6 +24,10 @@ type
     FOnStatusChange: TNotifyEventsEx;
     FOnManyErrors: TNotifyEventsEx;
     FOnGrabComplete: TNotifyEventsEx;
+    FBeforeSaveState: TNotifyEventsEx;
+    FAfterSaveState: TNotifyEventsEx;
+    FLastSaveTime: TDateTime;
+    FLogDS2: TLogDS;
     FPageParser: TPageParser;
     FParserManager: TParserManager;
     FProductListDS: TProductListDS;
@@ -32,12 +36,12 @@ type
     FProductParser: TProductParser;
     FProductsDS: TProductsDS;
     FProductW: TProductW;
+    FSaveStateInterval: Double;
     FStatus: TStatus;
-    FThreadStatus: TThreadStatus;
     FWaitObjectCount: Integer;
     FWebGrabberState: TWebGrabberState;
     procedure AddFinal(AIDProduct: Integer);
-    function CheckRunning: Boolean;
+    function IsStoping(AID: Integer): Boolean;
     procedure CreateDocDir;
     procedure DoAfterParse(Sender: TObject);
     procedure DoBeforeLoad(Sender: TObject);
@@ -50,20 +54,26 @@ type
     function GetErrorW: TErrorW;
     function GetFinalW: TFinalW;
     function GetLogW: TLogW;
+    function GetLogW2: TLogW;
     function GetPageParser: TPageParser;
     function GetParserManager: TParserManager;
     function GetProductListParser: TProductListParser;
     function GetProductListW: TProductListW;
     function GetProductParser: TProductParser;
     function GetProductW: TProductW;
+    procedure LoadState;
     procedure OnDownloadComplete(Sender: TObject);
     procedure OnDownloadError(ADownloadError: TDownloadError);
+    procedure SaveDBState;
+    procedure SaveState(AThreadStatus: TThreadStatus; AID: Integer);
     procedure SetStatus(const Value: TStatus);
     procedure StartCategoryParsing(AID: Integer);
     procedure StartDocumentDownload(AIDProduct: Integer);
     procedure StartProductListParsing(AID: Integer);
     procedure StartProductParsing(AID: Integer);
     procedure TryParseNextCategory(const ParentID: Integer);
+    procedure TrySaveState(AThreadStatus: TThreadStatus; AID: Integer);
+    procedure TryStartNextDownload;
   protected
     property CategoryParser: TCategoryParser read GetCategoryParser;
     property DownloadManagerEx: TDownloadManagerEx read GetDownloadManagerEx;
@@ -73,8 +83,6 @@ type
   public
     constructor Create(AOwner: TComponent); override;
     function ContinueGrab: Boolean;
-    procedure SaveState;
-    procedure LoadState;
     procedure StartGrab(ASettings: TWebGrabberSettings);
     function StateExists: Boolean;
     procedure StopGrab;
@@ -82,9 +90,12 @@ type
     property OnStatusChange: TNotifyEventsEx read FOnStatusChange;
     property OnManyErrors: TNotifyEventsEx read FOnManyErrors;
     property OnGrabComplete: TNotifyEventsEx read FOnGrabComplete;
+    property BeforeSaveState: TNotifyEventsEx read FBeforeSaveState;
+    property AfterSaveState: TNotifyEventsEx read FAfterSaveState;
     property ErrorW: TErrorW read GetErrorW;
     property FinalW: TFinalW read GetFinalW;
     property LogW: TLogW read GetLogW;
+    property LogW2: TLogW read GetLogW2;
     property ParserManager: TParserManager read GetParserManager;
     property ProductListW: TProductListW read GetProductListW;
     property ProductW: TProductW read GetProductW;
@@ -99,11 +110,18 @@ uses
 constructor TWebGrabber.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
+
+  FSaveStateInterval := (1 / 24 / 60);
+
   FLogDS := TLogDS.Create(Self);
+
+  FLogDS2 := TLogDS.Create(Self);
+  FLogDS2.FileName := 'DownloadingLog.dat';
 
   FCategoryDS := TCategoryDS.Create(Self);
   FCategoryW := TCategoryW.Create(FCategoryDS.W.AddClone(''));
 
+  // Список товаров
   FProductListDS := TProductListDS.Create(Self);
   FProductListW := TProductListW.Create(FProductListDS.W.AddClone(''));
   FProductListW.FilterByNotDone;
@@ -118,6 +136,8 @@ begin
   FOnStatusChange := TNotifyEventsEx.Create(Self);
   FOnManyErrors := TNotifyEventsEx.Create(Self);
   FOnGrabComplete := TNotifyEventsEx.Create(Self);
+  FBeforeSaveState := TNotifyEventsEx.Create(Self);
+  FAfterSaveState := TNotifyEventsEx.Create(Self);
 
   FErrorDS := TErrorDS.Create(Self);
 
@@ -157,7 +177,8 @@ begin
       // if L.Count > 4 then
       // raise Exception.Create('Слишком большая вложенность категорий');
       ItemNumber.F.AsString := FProductW.ItemNumber.F.AsString.Replace(' ', '');
-      Description.F.AsString := FProductW.Description.F.AsString;
+      Description.F.AsString := FProductListDS.W.Caption.F.AsString + #13#10 +
+        FProductW.Description.F.AsString;
       Image.F.AsString := FProductW.ImageFileName.F.AsString;
       Specification.F.AsString := FProductW.SpecificationFileName.F.AsString;
       Drawing.F.AsString := FProductW.DrawingFileName.F.AsString;
@@ -172,15 +193,27 @@ begin
   FProductW.SetStatus(1);
 end;
 
-function TWebGrabber.CheckRunning: Boolean;
+function TWebGrabber.IsStoping(AID: Integer): Boolean;
 begin
-  Result := Status = Runing;
-  if Result then
+  Result := Status = Stoping;
+  if not Result then
+  begin
+    // Если необходимо - сохраняем своё состояние по времени
+    if (AID > 0) or (FWebGrabberState.ThreadStatus = tsDownloading) then
+      TrySaveState(FWebGrabberState.ThreadStatus, AID);
     Exit;
+  end;
+
+  // Сохраняем информацию о месте, на котором мы остановились
+  SaveState(FWebGrabberState.ThreadStatus, AID);
 
   Dec(FWaitObjectCount);
   if FWaitObjectCount = 0 then
+  begin
     Status := Stoped;
+    // После полной остановки - сохраняем состояние ещё раз
+    SaveState(FWebGrabberState.ThreadStatus, AID);
+  end;
 end;
 
 function TWebGrabber.ContinueGrab: Boolean;
@@ -196,6 +229,7 @@ begin
   CreateDocDir;
 
   Status := Runing;
+  FLastSaveTime := Now;
 
   // Очищаем все ошибки
   FErrorDS.EmptyDataSet;
@@ -236,7 +270,7 @@ var
 begin
   ANotifyObj := Sender as TNotifyObj;
 
-  case FThreadStatus of
+  case FWebGrabberState.ThreadStatus of
     tsCategory:
       begin
         if CategoryParser.W.RecordCount = 0 then
@@ -254,8 +288,6 @@ begin
 
         if FCategoryW.HREF.Locate(ANotifyObj.URL, []) then
           FCategoryW.SetStatus(1); // Нашли подкатегории
-
-        // FViewCategory.MyApplyBestFit;
       end;
     tsProductList:
       begin
@@ -276,8 +308,6 @@ begin
 
         if FCategoryW.HREF.Locate(ANotifyObj.URL, []) then
           FCategoryW.SetStatus(2); // Нашли список товаров
-
-        // FViewProductList.MyApplyBestFit;
       end;
     tsProducts:
       begin
@@ -299,8 +329,6 @@ begin
 
         if FProductListW.HREF.Locate(ANotifyObj.URL, []) then
           FProductListW.SetStatus(1); // Нашли характеристики товара
-
-        // FViewProducts.MyApplyBestFit;
       end;
   end;
 
@@ -313,7 +341,7 @@ var
 begin
   ALogID := 0;
   PM := Sender as TParserManager;
-  case FThreadStatus of
+  case FWebGrabberState.ThreadStatus of
     tsCategory:
       ALogID := FLogDS.W.Add(GetCategoryPath(PM.ParentID),
         'поиск подкатегорий');
@@ -334,7 +362,7 @@ var
 begin
   PM := Sender as TParserManager;
 
-  case FThreadStatus of
+  case FWebGrabberState.ThreadStatus of
     tsCategory:
       begin
         // Если в ходе парсинга возникли ошибки
@@ -345,7 +373,6 @@ begin
           Exit;
         end;
 
-        FCategoryW.DataSet.Filtered := False;
         // Переходим на ту категорию, содержимое которой парсили
         FCategoryW.ID.Locate(PM.ParentID, [], True);
 
@@ -372,8 +399,6 @@ begin
           StartProductListParsing(PM.ParentID);
           Exit;
         end;
-
-        FCategoryW.DataSet.Filtered := False;
 
         // Переходим на ту категорию, содержимое которой парсили
         FCategoryW.ID.Locate(PM.ParentID, [], True);
@@ -417,7 +442,6 @@ begin
           // Переходим к последнему элементу списка товаров, который мы парсили
           FProductListDS.W.LocateByPK(PM.ParentID, True);
 
-          FCategoryW.DataSet.Filtered := False;
           // Переходим на ту категорию, содержимое которой парсили
           FCategoryW.ID.Locate(FProductListDS.W.ParentID.F.AsInteger, [], True);
 
@@ -501,6 +525,11 @@ begin
   Result := FLogDS.W;
 end;
 
+function TWebGrabber.GetLogW2: TLogW;
+begin
+  Result := FLogDS2.W;
+end;
+
 function TWebGrabber.GetPageParser: TPageParser;
 begin
   if FPageParser = nil then
@@ -575,16 +604,9 @@ begin
   AddFinal(ADM.ID);
 
   // Загрузили документацию
-  FLogDS.W.SetState(FDownloadLogID, AStateText);
+  FLogDS2.W.SetState(FDownloadLogID, AStateText);
 
-  // Если продолжать загрузку не надо!
-  if not CheckRunning then
-    Exit;
-
-  // Если есть необработанные товары
-  if FProductW.DataSet.RecordCount > 0 then
-    // Начинаем загрузку документации
-    StartDocumentDownload(FProductW.ID.F.AsInteger)
+  TryStartNextDownload;
 end;
 
 procedure TWebGrabber.OnDownloadError(ADownloadError: TDownloadError);
@@ -617,15 +639,12 @@ begin
   FProductW.TryPost;
 end;
 
-procedure TWebGrabber.SaveState;
+procedure TWebGrabber.SaveState(AThreadStatus: TThreadStatus; AID: Integer);
 begin
-  Assert(FStatus = Stoped);
-  FLogDS.Save;
-  FCategoryDS.Save;
-  FProductListDS.Save;
-  FProductsDS.Save;
-  FErrorDS.Save;
-  FFinalDataSet.Save;
+  FBeforeSaveState.CallEventHandlers(Self);
+  SaveDBState;
+  FWebGrabberState.Save(AThreadStatus, AID, FProductsDS.ID, FDownloadDocs);
+  FAfterSaveState.CallEventHandlers(Self);
 end;
 
 procedure TWebGrabber.LoadState;
@@ -642,8 +661,10 @@ begin
   Assert(FProductListDS.ID = FWebGrabberState.MaxID);
   Assert(FProductsDS.ID = FWebGrabberState.MaxID);
   Assert(FLogDS.ID = FWebGrabberState.MaxID);
+  Assert(FLogDS2.ID = FWebGrabberState.MaxID);
 
   FLogDS.Load;
+  FLogDS2.Load;
   FCategoryDS.Load;
   FProductListDS.Load;
   FProductsDS.Load;
@@ -651,12 +672,22 @@ begin
   FFinalDataSet.Load;
 end;
 
+procedure TWebGrabber.SaveDBState;
+begin
+  FLogDS.Save;
+  FLogDS2.Save;
+  FCategoryDS.Save;
+  FProductListDS.Save;
+  FProductsDS.Save;
+  FErrorDS.Save;
+  FFinalDataSet.Save;
+end;
+
 procedure TWebGrabber.SetStatus(const Value: TStatus);
 begin
   FStatus := Value;
   if FStatus = Stoped then
   begin
-    SaveState;
   end;
 
   if FStatus = Runing then
@@ -665,9 +696,16 @@ begin
 
   if FStatus = Stoping then
   begin
-    FWaitObjectCount := 1;
+    FWaitObjectCount := 0;
+
+    // Если сейчас идёт обработка категорий, списка товаров или характеристик товара
+    if FWebGrabberState.ThreadStatus in [tsCategory, tsProductList, tsProducts]
+    then
+      Inc(FWaitObjectCount);
+
+    // Если сейчас идёт загрузка документации
     if DownloadManagerEx.Downloading then
-      FWaitObjectCount := 2;
+      Inc(FWaitObjectCount);
   end;
 
   FOnStatusChange.CallEventHandlers(Self);
@@ -677,22 +715,18 @@ procedure TWebGrabber.StartCategoryParsing(AID: Integer);
 begin
   Assert(AID > 0);
   // Ищем запись о этой категории
-  FCategoryW.DataSet.Filtered := False;
   FCategoryW.ID.Locate(AID, [], True);
   // Она должна быть ещё не обработана
   Assert(FCategoryW.Status.F.AsInteger = 0);
 
-  FThreadStatus := tsCategory;
+  FWebGrabberState.ThreadStatus := tsCategory;
 
   if FErrorDS.W.HaveManyErrors then
     OnManyErrors.CallEventHandlers(Self);
 
-  // Если продолжать не надо
-  if not CheckRunning then
-  begin
-    FWebGrabberState.Save(FThreadStatus, AID, FCategoryDS.ID, FDownloadDocs);
+  // Если нужно остановиться
+  if IsStoping(AID) then
     Exit;
-  end;
 
   // Запускаем парсер категорий в потоке
   ParserManager.Start(FCategoryW.HREF.F.AsString, FCategoryW.ID.F.AsInteger,
@@ -767,9 +801,9 @@ begin
     begin
       FProductListDS.W.LocateByPK(FProductW.ParentID.F.AsInteger, True);
 
-      FDownloadLogID :=
-        FLogDS.W.Add(GetCategoryPath(FProductListDS.W.ParentID.F.AsInteger) +
-        '\' + FProductListDS.W.Caption.F.AsString, 'загружаем документацию');
+      FDownloadLogID := FLogDS2.W.Add
+        (GetCategoryPath(FProductListDS.W.ParentID.F.AsInteger) + '\' +
+        FProductListDS.W.Caption.F.AsString, 'загружаем документацию');
 
       DownloadManagerEx.StartDownload(AIDProduct, L.ToArray)
     end
@@ -777,7 +811,8 @@ begin
     begin
       // Добавляем конечную информацию о продукте
       AddFinal(AIDProduct);
-      Exit;
+
+      TryStartNextDownload;
     end;
   finally
     FreeAndNil(L);
@@ -790,6 +825,7 @@ var
 begin
   Assert(ASettings.URLs.Count > 0);
   FLogDS.EmptyDataSet;
+  FLogDS2.EmptyDataSet;
   FCategoryDS.EmptyDataSet;
   FProductListDS.EmptyDataSet;
   FProductsDS.EmptyDataSet;
@@ -812,23 +848,17 @@ end;
 
 procedure TWebGrabber.StartProductListParsing(AID: Integer);
 begin
-  if FErrorDS.W.HaveManyErrors then
-    OnManyErrors.CallEventHandlers(Self);
-
-  // Если продолжать не надо
-  if not CheckRunning then
-    Exit;
-
   // Переходим на ту категорию, содержимое которой парсили
   FCategoryW.ID.Locate(AID, [], True);
 
-  FThreadStatus := tsProductList;
+  FWebGrabberState.ThreadStatus := tsProductList;
 
-  if not CheckRunning then
-  begin
-    FWebGrabberState.Save(FThreadStatus, AID, FProductListDS.ID, FDownloadDocs);
+  if FErrorDS.W.HaveManyErrors then
+    OnManyErrors.CallEventHandlers(Self);
+
+  // Если нужно остановиться
+  if IsStoping(AID) then
     Exit;
-  end;
 
   // Запускаем парсер списка товаров в потоке
   ParserManager.Start(FCategoryW.HREF.F.AsString, FCategoryW.ID.F.AsInteger,
@@ -844,16 +874,14 @@ begin
   // Она должна быть ещё не обработана
   Assert(FProductListW.Status.F.AsInteger = 0);
 
-  FThreadStatus := tsProducts;
+  FWebGrabberState.ThreadStatus := tsProducts;
 
   if FErrorDS.W.HaveManyErrors then
     OnManyErrors.CallEventHandlers(Self);
 
-  if not CheckRunning then
-  begin
-    FWebGrabberState.Save(FThreadStatus, AID, FProductsDS.ID, FDownloadDocs);
+  // Если нужно остановиться
+  if IsStoping(AID) then
     Exit;
-  end;
 
   // Запускаем парсер товара в потоке
   ParserManager.Start(FProductListW.HREF.F.AsString,
@@ -868,6 +896,9 @@ begin
     Exit;
 
   if not TFile.Exists(FLogDS.FullFileName) then
+    Exit;
+
+  if not TFile.Exists(FLogDS2.FullFileName) then
     Exit;
 
   if not TFile.Exists(FCategoryDS.FullFileName) then
@@ -885,6 +916,7 @@ procedure TWebGrabber.TryParseNextCategory(const ParentID: Integer);
 var
   AID: Integer;
   AParentID: Integer;
+  AState: string;
 begin
   AID := 0;
   AParentID := ParentID;
@@ -902,12 +934,12 @@ begin
   begin
     // Переходим на дочернюю категорию
     FCategoryW.ID.Locate(AParentID, [], True);
-    // Дочерняя должна быть успешно обработана
+    // Родительская должна быть успешно обработана
     Assert(FCategoryW.Status.F.AsInteger > 0);
 
     AParentID := FCategoryW.ParentID.F.AsInteger;
 
-    // У дочерней нет дочерней
+    // У Родительской нет родительской
     if AParentID = 0 then
       break;
 
@@ -924,14 +956,80 @@ begin
       break;
   end;
 
+  if AID = 0 then
+  begin
+    // На всякий случай, ищем категории, которые ещё не обрабатывались
+    FCategoryW.FilterByNotDone;
+    try
+      if FCategoryW.DataSet.RecordCount > 0 then
+        AID := FCategoryW.ID.F.AsInteger;
+    finally
+      FCategoryW.DataSet.Filtered := False;
+    end;
+  end;
+
   // Если нашли категрию которую ещё не парсили
   if AID > 0 then
     StartCategoryParsing(AID)
   else
   begin
-    FWebGrabberState.Save(tsComplete, 0, FCategoryDS.ID, FDownloadDocs);
-    Status := Stoped;
-    FOnGrabComplete.CallEventHandlers(Self);
+    // Если есть необработанные товары
+    if FProductW.DataSet.RecordCount > 0 then
+    begin
+      FWebGrabberState.ThreadStatus := tsDownloading;
+      AState := 'Ждём загрузки документации';
+    end
+    else
+    begin
+      FWebGrabberState.ThreadStatus := tsComplete;
+      AState := 'Сбор завершён';
+    end;
+
+    FLogDS.W.Add('Все категории обработаны', AState);
+    // Сохраняем своё состояние
+    SaveState(FWebGrabberState.ThreadStatus, 0);
+
+    // если всю документацию загрузили и сформировали таблицу с результатом
+    if FWebGrabberState.ThreadStatus = tsComplete then
+    begin
+      Status := Stoped;
+      FOnGrabComplete.CallEventHandlers(Self);
+    end;
+  end;
+end;
+
+procedure TWebGrabber.TrySaveState(AThreadStatus: TThreadStatus; AID: Integer);
+begin
+  if (Now - FLastSaveTime) < FSaveStateInterval then
+    Exit;
+
+  // Если пора сохранить своё состояние
+  FLastSaveTime := Now;
+
+  SaveState(AThreadStatus, AID);
+end;
+
+procedure TWebGrabber.TryStartNextDownload;
+begin
+  // Если нужно остановиться
+  if IsStoping(0) then
+    Exit;
+
+  // Если есть необработанные товары
+  if FProductW.DataSet.RecordCount > 0 then
+    // Начинаем загрузку документации
+    StartDocumentDownload(FProductW.ID.F.AsInteger)
+  else
+  begin
+    // если всю документацию загрузили и сформировали таблицу с результатом
+    if FWebGrabberState.ThreadStatus = tsDownloading then
+    begin
+      FLogDS2.W.Add('Вся документация загружена', 'Сбор информации завершён');
+
+      SaveState(tsComplete, 0);
+      Status := Stoped;
+      FOnGrabComplete.CallEventHandlers(Self);
+    end;
   end;
 end;
 

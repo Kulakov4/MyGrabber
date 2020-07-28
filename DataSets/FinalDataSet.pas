@@ -66,7 +66,7 @@ begin
   FSpecification := TFieldWrap.Create(Self, 'Specification', 'Спецификация');
   FDrawing := TFieldWrap.Create(Self, 'Drawing', 'Чертёж');
   FProducer := TFieldWrap.Create(Self, 'Producer', 'Производитель');
-  FTemperatureRange := TFieldWrap.Create(Self, 'TemperatureRange', 'Температурный диапазон');
+  FTemperatureRange := TFieldWrap.Create(Self, 'TemperatureRange');
 
   TNotifyEventWrap.Create(AfterInsert, DoAfterInsert, EventList);
 end;

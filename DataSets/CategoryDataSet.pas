@@ -16,8 +16,8 @@ type
     procedure Do_AfterInsert(Sender: TObject);
   public
     constructor Create(AOwner: TComponent); override;
-    procedure FilterByParentID(AParentID: Integer);
     procedure FilterByParentIDAndNotDone(AParentID: Integer);
+    procedure FilterByNotDone;
     procedure FilterByRoot;
     procedure SetStatus(AStatus: Integer);
     property Caption: TFieldWrap read FCaption;
@@ -56,16 +56,16 @@ begin
   Status.F.AsInteger := 0;
 end;
 
-procedure TCategoryW.FilterByParentID(AParentID: Integer);
-begin
-  DataSet.Filter := Format('(%s = %d)', [ParentID.FieldName, AParentID]);
-  DataSet.Filtered := True;
-end;
-
 procedure TCategoryW.FilterByParentIDAndNotDone(AParentID: Integer);
 begin
   DataSet.Filter := Format('(%s = %d) and (%s = 0)',
     [ParentID.FieldName, AParentID, Status.FieldName]);
+  DataSet.Filtered := True;
+end;
+
+procedure TCategoryW.FilterByNotDone;
+begin
+  DataSet.Filter := Format('%s = 0', [Status.FieldName]);
   DataSet.Filtered := True;
 end;
 
