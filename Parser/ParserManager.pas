@@ -4,7 +4,11 @@ interface
 
 uses
   System.Classes, ParserInterface, PageParserInterface, DSWrap, NotifyEvents,
-  MSHTML, WebLoader, System.Generics.Collections;
+  MSHTML, WebLoader, System.Generics.Collections, Vcl.ExtCtrls,
+  System.SyncObjs, Winapi.Messages, Winapi.Windows;
+
+const
+  WM_PARSE_COMPLETE = WM_USER + 1;
 
 type
   TNotifyObj = class(TObject)
@@ -31,23 +35,34 @@ type
     FAfterParse: TNotifyEventsEx;
     FBeforeLoad: TNotifyEventsEx;
     FErrors: TObjectList<TErrorNotify>;
+    FHandle: HWND;
     FLogID: Integer;
     FParentID: Integer;
     FNotifyObj: TNotifyObj;
     FOnError: TNotifyEventsEx;
     FPageParser: IPageParser;
+    FPageURL: string;
     FParser: IParser;
+    FTimeOutInterval: Integer;
+    FTimer: TTimer;
+    FLock: TCriticalSection;
     function GetOnParseComplete: TNotifyEventsEx;
     function GetAfterParse: TNotifyEventsEx;
     function GetBeforeLoad: TNotifyEventsEx;
+    function GetHandle: HWND;
     function GetOnError: TNotifyEventsEx;
     procedure Main(const AURL: String; AParentID: Integer);
     procedure NotifyAfterParse(AURL: string; ALogID: Integer);
     procedure NotifyBeforeLoad;
     procedure NotifyError(const AURL: String; ALogID: Integer;
       const AErrorMessage: String);
+    procedure NotifyParseComplete;
     procedure OnThreadTerminate(Sender: TObject);
+    procedure OnTimer(Sender: TObject);
+    procedure RestartTimer;
   protected
+    procedure WndProc(var Msg: TMessage); virtual;
+    property Handle: HWND read GetHandle;
   public
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
@@ -66,16 +81,27 @@ implementation
 
 uses
   System.SysUtils, System.Variants, Winapi.ActiveX,
-  System.Win.ComObj, Vcl.Forms, WebLoader3;
+  System.Win.ComObj, Vcl.Forms, WebLoader2;
 
 constructor TParserManager.Create(AOwner: TComponent);
 begin
   inherited;
   FErrors := TObjectList<TErrorNotify>.Create;
+  FTimeOutInterval := 10000;
+  FTimer := TTimer.Create(Self);
+  FTimer.Enabled := False;
+  FTimer.OnTimer := OnTimer;
+  FTimer.Interval := FTimeOutInterval;
+
+  FLock := TCriticalSection.Create;
+
+  Randomize;
 end;
 
 destructor TParserManager.Destroy;
 begin
+  FreeAndNil(FLock);
+
   if FOnParseComplete <> nil then
     FreeAndNil(FOnParseComplete);
 
@@ -86,6 +112,10 @@ begin
     FreeAndNil(FAfterParse);
 
   FreeAndNil(FErrors);
+
+  if FHandle <> 0 then
+    DeallocateHWnd(FHandle);
+
   inherited;
 end;
 
@@ -113,6 +143,14 @@ begin
   Result := FBeforeLoad;
 end;
 
+function TParserManager.GetHandle: HWND;
+begin
+  if FHandle = 0 then
+    FHandle := System.Classes.AllocateHWnd(WndProc);
+
+  Result := FHandle;
+end;
+
 function TParserManager.GetOnError: TNotifyEventsEx;
 begin
   if FOnError = nil then
@@ -125,16 +163,17 @@ procedure TParserManager.Main(const AURL: String; AParentID: Integer);
 var
   AHTML: WideString;
   AHTMLDocument: IHTMLDocument2;
+  ALoader: TWebLoader2;
   ANextPageAvailable: Boolean;
-  APageURL: String;
-//  sl: TStringList;
+  r: Integer;
+  // sl: TStringList;
   V: Variant;
 begin
   try
     Assert(not AURL.IsEmpty);
     Assert(AParentID > 0);
 
-    APageURL := AURL;
+    FPageURL := AURL;
     // Цикл по всем страницам HTML документов
     repeat
       // Извещаем главный поток о том, что сейчас будет загрузка HTML документа
@@ -148,7 +187,20 @@ begin
       CoInitialize(nil);
 
       // Загружаем страницу
-      AHTML := TWebDM.Instance.Load(APageURL);
+      ALoader := TWebLoader2.Create(nil);
+      try
+        AHTML := ALoader.Load(FPageURL);
+      finally
+        FreeAndNil(ALoader);
+      end;
+
+      // AHTML := TWebDM.Instance.Load(FPageURL);
+
+      // Загадываем случайное число от 0 до 2
+      r := Random(3);
+      if r = 10 then
+        Sleep(30000); // Засыпаем на 30 секунд
+
       // AHTMLDocument := TWebLoaderForm.Instance.Load(APageURL);
       AHTMLDocument := coHTMLDocument.Create as IHTMLDocument2;
       try
@@ -159,20 +211,20 @@ begin
         AHTMLDocument.Write(PSafeArray(System.TVarData(V).VArray));
 
         // парсим наш HTML докумет на наличие категорий
-        FParser.Parse(APageURL, AHTMLDocument, AParentID);
+        FParser.Parse(FPageURL, AHTMLDocument, AParentID);
 
         // Извещаем главный поток о том, что парсинг документа закончен
         TThread.Synchronize(TThread.CurrentThread,
           procedure()
           begin
-            NotifyAfterParse(APageURL, LogID);
+            NotifyAfterParse(FPageURL, LogID);
           end);
 
         ANextPageAvailable := False;
 
         if Assigned(FPageParser) then
           // Парсим эту страницу на наличие ссылки на следующую страницу
-          ANextPageAvailable := FPageParser.Parse(AHTMLDocument, APageURL);
+          ANextPageAvailable := FPageParser.Parse(AHTMLDocument, FPageURL);
 
       finally
         AHTMLDocument := nil;
@@ -184,22 +236,25 @@ begin
       TThread.Synchronize(TThread.CurrentThread,
         procedure()
         begin
-(*
-          sl := TStringList.Create;
-          try
+          (*
+            sl := TStringList.Create;
+            try
             sl.Add(AHTML);
             sl.SaveToFile('error.html');
-          finally
+            finally
             FreeAndNil(sl);
-          end;
-*)
-          NotifyError(APageURL, LogID, E.Message);
+            end;
+          *)
+          NotifyError(FPageURL, FLogID, E.Message);
         end);
   end;
 end;
 
 procedure TParserManager.NotifyAfterParse(AURL: string; ALogID: Integer);
 begin
+  // Останавливаем таймер
+  FTimer.Enabled := False;
+
   if FAfterParse = nil then
     Exit;
 
@@ -213,6 +268,8 @@ end;
 
 procedure TParserManager.NotifyBeforeLoad;
 begin
+  RestartTimer;
+
   if FBeforeLoad <> nil then
     FBeforeLoad.CallEventHandlers(Self);
 end;
@@ -222,6 +279,9 @@ const AErrorMessage: String);
 var
   AErrorNotify: TErrorNotify;
 begin
+  // Останавливаем таймер
+  FTimer.Enabled := False;
+
   AErrorNotify := TErrorNotify.Create;
 
   AErrorNotify.FURL := AURL;
@@ -236,12 +296,63 @@ begin
   FOnError.CallEventHandlers(AErrorNotify);
 end;
 
-procedure TParserManager.OnThreadTerminate(Sender: TObject);
+procedure TParserManager.NotifyParseComplete;
 begin
   if FOnParseComplete <> nil then
     FOnParseComplete.CallEventHandlers(Self);
+end;
 
-  FThread := nil;
+procedure TParserManager.OnThreadTerminate(Sender: TObject);
+begin
+  FLock.Acquire;
+  try
+    // Останавливаем таймер
+    FTimer.Enabled := False;
+
+    FThread := nil;
+
+    PostMessage(Handle, WM_PARSE_COMPLETE, 0, 0);
+  finally
+    FLock.Release;
+  end;
+end;
+
+procedure TParserManager.OnTimer(Sender: TObject);
+var
+  AExitCode: Cardinal;
+begin
+  FLock.Acquire;
+  try
+    // Останавливаем таймер
+    FTimer.Enabled := False;
+
+    // Значит поток всё же как-то завершился
+    if FThread = nil then
+      Exit;
+
+    // Поток всё ещё должен выполняться
+
+    // Мы больше не будем реагировать на окончание работы этого потока
+    FThread.OnTerminate := nil;
+
+    AExitCode := 0;
+    TerminateThread(FThread.Handle, AExitCode);
+    FThread := nil;
+
+    // Сообщаем об ошибке
+    NotifyError(FPageURL, FLogID, 'Обнаружено зависание');
+
+    // Чуть позже сообщим, что поток завершился
+    PostMessage(Handle, WM_PARSE_COMPLETE, 0, 0);
+  finally
+    FLock.Release;
+  end;
+end;
+
+procedure TParserManager.RestartTimer;
+begin
+  FTimer.Enabled := False;
+  FTimer.Enabled := True;
 end;
 
 procedure TParserManager.Start(const AURL: String; AParentID: Integer;
@@ -263,6 +374,16 @@ begin
   FThread.OnTerminate := OnThreadTerminate;
   FThread.FreeOnTerminate := True;
   FThread.Start;
+end;
+
+procedure TParserManager.WndProc(var Msg: TMessage);
+begin
+  with Msg do
+    case Msg of
+      WM_PARSE_COMPLETE:  NotifyParseComplete;
+    else
+      DefWindowProc(FHandle, Msg, wParam, lParam);
+    end;
 end;
 
 end.

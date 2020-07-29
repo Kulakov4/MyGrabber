@@ -9,6 +9,7 @@ type
   TProductW = class(TParserW)
   private
     FDescription: TFieldWrap;
+    FDoneStatus: Integer;
     FTemperatureRange: TFieldWrap;
     FImageURL: TFieldWrap;
     FSpecificationURL: TFieldWrap;
@@ -25,6 +26,7 @@ type
     procedure FilterByNotDone;
     procedure SetStatus(AStatus: Integer);
     property Description: TFieldWrap read FDescription;
+    property DoneStatus: Integer read FDoneStatus;
     property TemperatureRange: TFieldWrap read FTemperatureRange;
     property ImageURL: TFieldWrap read FImageURL;
     property SpecificationURL: TFieldWrap read FSpecificationURL;
@@ -67,6 +69,8 @@ begin
   FParentID := TFieldWrap.Create(Self, 'ParentID', 'Код родителя');
   FStatus := TFieldWrap.Create(Self, 'Status', 'Состояние');
   TNotifyEventWrap.Create(AfterInsert, Do_AfterInsert);
+
+  FDoneStatus := 3;
 end;
 
 procedure TProductW.Do_AfterInsert(Sender: TObject);
@@ -76,7 +80,7 @@ end;
 
 procedure TProductW.FilterByNotDone;
 begin
-  DataSet.Filter := Format('%s = %d', [Status.FieldName, 0]);
+  DataSet.Filter := Format('%s < %d', [Status.FieldName, FDoneStatus]);
   DataSet.Filtered := True;
 end;
 

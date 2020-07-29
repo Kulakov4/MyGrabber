@@ -43,7 +43,6 @@ uses
   NounUnit in 'Helpers\NounUnit.pas',
   Settings in 'Settings.pas',
   SettingsForm in 'Views\SettingsForm.pas' {frmSettings},
-  WebLoader3 in 'Web\WebLoader3.pas' {WebLoaderForm},
   SplashForm in 'Views\Splash\SplashForm.pas' {frmSplash},
   HRTimer in 'Helpers\HRTimer.pas';
 

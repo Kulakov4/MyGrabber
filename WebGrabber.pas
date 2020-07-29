@@ -78,10 +78,12 @@ type
     property CategoryParser: TCategoryParser read GetCategoryParser;
     property DownloadManagerEx: TDownloadManagerEx read GetDownloadManagerEx;
     property PageParser: TPageParser read GetPageParser;
+    property ParserManager: TParserManager read GetParserManager;
     property ProductListParser: TProductListParser read GetProductListParser;
     property ProductParser: TProductParser read GetProductParser;
   public
     constructor Create(AOwner: TComponent); override;
+    destructor Destroy; override;
     function ContinueGrab: Boolean;
     procedure StartGrab(ASettings: TWebGrabberSettings);
     function StateExists: Boolean;
@@ -96,7 +98,6 @@ type
     property FinalW: TFinalW read GetFinalW;
     property LogW: TLogW read GetLogW;
     property LogW2: TLogW read GetLogW2;
-    property ParserManager: TParserManager read GetParserManager;
     property ProductListW: TProductListW read GetProductListW;
     property ProductW: TProductW read GetProductW;
     property Status: TStatus read FStatus write SetStatus;
@@ -148,6 +149,11 @@ begin
   LoadState;
 end;
 
+destructor TWebGrabber.Destroy;
+begin
+  inherited;
+end;
+
 procedure TWebGrabber.AddFinal(AIDProduct: Integer);
 var
   L: TList<String>;
@@ -189,8 +195,8 @@ begin
     FreeAndNil(L);
   end;
 
-  Assert(FProductW.Status.F.AsInteger = 0);
-  FProductW.SetStatus(1);
+  Assert(FProductW.Status.F.AsInteger < FProductW.DoneStatus);
+  FProductW.SetStatus(FProductW.DoneStatus);
 end;
 
 function TWebGrabber.IsStoping(AID: Integer): Boolean;
@@ -580,11 +586,13 @@ procedure TWebGrabber.OnDownloadComplete(Sender: TObject);
 var
   ADM: TDownloadManagerEx;
   AErrorList: TList<TDownloadError>;
-  AStateText: string;
   i: Integer;
+  AError: Boolean;
+  Done: Boolean;
 begin
   ADM := Sender as TDownloadManagerEx;
-  AStateText := 'документация успешно загружена';
+  AError := False;
+
   // Обрабатываем ошибки загрузки
   AErrorList := ADM.ErrorList.LockList;
   try
@@ -593,18 +601,34 @@ begin
       for i := 0 to AErrorList.Count - 1 do
       begin
         OnDownloadError(AErrorList[i]);
+        AError := True;
       end;
-      AStateText := 'ошибка при загрузке документации';
     end;
   finally
     ADM.ErrorList.UnlockList;
   end;
 
-  // Добавляем конечную информацию о продукте
-  AddFinal(ADM.ID);
+  // Сообщаем в журнал о результатах загрузки документации
+  FLogDS2.W.SetState(FDownloadLogID,
+    IfThen(AError, 'ошибка при загрузке документации',
+    'документация успешно загружена'));
 
-  // Загрузили документацию
-  FLogDS2.W.SetState(FDownloadLogID, AStateText);
+  Done := not AError;
+
+  // Если были ошибки
+  if not Done then
+  begin
+    FProductW.LocateByPK(ADM.ID, True);
+    Done := FProductW.Status.F.AsInteger = FProductW.DoneStatus - 1;
+
+    // Увеличиваем кол-во выполненных попыток загрузки
+    if not Done then
+      FProductW.SetStatus(FProductW.Status.F.AsInteger + 1);
+  end;
+
+  // Если без ошибок, или все попытки закончились
+  if Done then
+    AddFinal(ADM.ID); // Добавляем конечную информацию о продукте
 
   TryStartNextDownload;
 end;
@@ -621,22 +645,26 @@ begin
 
   FProductW.LocateByPK(ADownloadError.ID, True);
 
-  Assert(FProductW.Status.F.AsInteger = 0);
+  Assert(FProductW.Status.F.AsInteger < FProductW.DoneStatus);
 
-  AFileName := TPath.GetFileName(ADownloadError.FileName);
+  // Если больше нет попыток для закачки файла
+  if FProductW.Status.F.AsInteger = FProductW.DoneStatus - 1 then
+  begin
+    AFileName := TPath.GetFileName(ADownloadError.FileName);
 
-  FProductW.TryEdit;
+    FProductW.TryEdit;
 
-  if FProductW.ImageFileName.F.AsString = AFileName then
-    FProductW.ImageFileName.F.AsString := '';
+    if FProductW.ImageFileName.F.AsString = AFileName then
+      FProductW.ImageFileName.F.AsString := '';
 
-  if FProductW.SpecificationFileName.F.AsString = AFileName then
-    FProductW.SpecificationFileName.F.AsString := '';
+    if FProductW.SpecificationFileName.F.AsString = AFileName then
+      FProductW.SpecificationFileName.F.AsString := '';
 
-  if FProductW.DrawingFileName.F.AsString = AFileName then
-    FProductW.DrawingFileName.F.AsString := '';
+    if FProductW.DrawingFileName.F.AsString = AFileName then
+      FProductW.DrawingFileName.F.AsString := '';
 
-  FProductW.TryPost;
+    FProductW.TryPost;
+  end;
 end;
 
 procedure TWebGrabber.SaveState(AThreadStatus: TThreadStatus; AID: Integer);
@@ -751,7 +779,7 @@ begin
   end;
 
   // Загрузка документации об этом продукте ещё не производилась
-  Assert(FProductW.Status.F.AsInteger = 0);
+  Assert(FProductW.Status.F.AsInteger < FProductW.DoneStatus);
 
   AProgramPath := TMyDir.AppDir;
 

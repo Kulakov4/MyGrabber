@@ -20,6 +20,24 @@ const
   WM_BEST_FIT = WM_USER + 2;
 
 type
+  // —сылка на метод
+  TCheckMethod = reference to function: Boolean;
+
+  TMyView = class(TComponent)
+  private
+    FCheckMethod: TCheckMethod;
+    FEnable: Boolean;
+    FHRTimer: THRTimer;
+    FLastApplyBestFitTime: TDateTime;
+    FView: TfrmGrid;
+  public
+    constructor Create(AOwner: TComponent; ACheckMethod: TCheckMethod;
+      AView: TfrmGrid); reintroduce;
+    destructor Destroy; override;
+    procedure TryApplyBestFit;
+    property View: TfrmGrid read FView;
+  end;
+
   TMainForm = class(TForm)
     cxPageControl1: TcxPageControl;
     dxBarManager1: TdxBarManager;
@@ -40,22 +58,20 @@ type
     FDStanStorageJSONLink1: TFDStanStorageJSONLink;
     FDStanStorageBinLink1: TFDStanStorageBinLink;
     cxTabSheetLog2: TcxTabSheet;
-    procedure FormDestroy(Sender: TObject);
     procedure actContinueGrabExecute(Sender: TObject);
     procedure actStartGrabExecute(Sender: TObject);
     procedure actStopGrabExecute(Sender: TObject);
+    procedure cxPageControl1Change(Sender: TObject);
     procedure cxPageControl1PageChanging(Sender: TObject; NewPage: TcxTabSheet;
       var AllowChange: Boolean);
     procedure FormCloseQuery(Sender: TObject; var CanClose: Boolean);
     procedure FormCreate(Sender: TObject);
   strict private
   private
-    FAfterLogPostEnable: Boolean;
-    FAfterFinalPostEnable: Boolean;
     FClosing: Boolean;
-    FHRTimer: THRTimer;
-    FLastFinalPostTime: TDateTime;
-    FLastLogPostTime: TDateTime;
+    FMyFinal: TMyView;
+    FMyLog1: TMyView;
+    FMyLog2: TMyView;
     FSettings: TWebGrabberSettings;
 {$IFDEF MYDEBUG}
     FViewCategory: TfrmGrid;
@@ -70,6 +86,7 @@ type
     procedure AfterFinalPost(Sender: TObject);
     procedure AfterErrorPost(Sender: TObject);
     procedure AfterLogPost(Sender: TObject);
+    procedure AfterLog2Post(Sender: TObject);
     procedure AfterSaveState(Sender: TObject);
     procedure ApplyBestFit;
     procedure BeforeSaveState(Sender: TObject);
@@ -95,11 +112,6 @@ uses
   SettingsForm;
 
 {$R *.dfm}
-
-procedure TMainForm.FormDestroy(Sender: TObject);
-begin
-  FreeAndNil(FHRTimer);
-end;
 
 procedure TMainForm.actContinueGrabExecute(Sender: TObject);
 begin
@@ -131,27 +143,8 @@ begin
 end;
 
 procedure TMainForm.AfterFinalPost(Sender: TObject);
-var
-  d: Double;
-  T: TDateTime;
 begin
-  if not FAfterFinalPostEnable then
-    Exit;
-
-  T := Now;
-
-  if (T - FLastFinalPostTime < (1 / 24 / 60)) and
-    (FViewFinal.MainView.ViewData.RowCount > 1) then
-    Exit;
-
-  FLastFinalPostTime := T;
-
-  // TfrmSplash.ShowWait('Подбираю оптимальную ширину столбцов');
-  FHRTimer.StartTimer;
-  FViewFinal.MainView.ApplyBestFit;
-  d := FHRTimer.ReadTimer;
-  FAfterFinalPostEnable := d < 500;
-  // TfrmSplash.HideWait;
+  FMyFinal.TryApplyBestFit;
 end;
 
 procedure TMainForm.AfterErrorPost(Sender: TObject);
@@ -160,28 +153,13 @@ begin
 end;
 
 procedure TMainForm.AfterLogPost(Sender: TObject);
-var
-  d: Double;
-  T: TDateTime;
 begin
-  if not FAfterLogPostEnable then
-    Exit;
+  FMyLog1.TryApplyBestFit;
+end;
 
-  T := Now;
-
-  if (T - FLastLogPostTime < (1 / 24 / 60 / 3)) and
-    (FViewLog.MainView.ViewData.RowCount > 1) then
-    Exit;
-
-  FLastLogPostTime := T;
-
-  // TfrmSplash.ShowWait('Подбираю оптимальную ширину столбцов');
-
-  // FHRTimer.StartTimer;
-  FViewLog.MainView.ApplyBestFit;
-  d := FHRTimer.ReadTimer;
-  FAfterLogPostEnable := d < 500;
-  // TfrmSplash.HideWait;
+procedure TMainForm.AfterLog2Post(Sender: TObject);
+begin
+  FMyLog2.TryApplyBestFit;
 end;
 
 procedure TMainForm.AfterSaveState(Sender: TObject);
@@ -213,6 +191,18 @@ procedure TMainForm.BestFitMessage(var Message: TMessage);
 begin
   inherited;
   ApplyBestFit;
+end;
+
+procedure TMainForm.cxPageControl1Change(Sender: TObject);
+begin
+  if cxPageControl1.ActivePage = cxTabSheetLog then
+    FMyLog1.TryApplyBestFit;
+
+  if cxPageControl1.ActivePage = cxTabSheetLog2 then
+    FMyLog2.TryApplyBestFit;
+
+  if cxPageControl1.ActivePage = cxTabSheetFinal then
+    FMyFinal.TryApplyBestFit;
 end;
 
 procedure TMainForm.cxPageControl1PageChanging(Sender: TObject;
@@ -294,8 +284,6 @@ end;
 
 procedure TMainForm.FormCreate(Sender: TObject);
 begin
-  FHRTimer := THRTimer.Create(False);
-
 {$IFNDEF MYDEBUG}
   cxTabSheetCategory.Free;
   cxTabSheetProductList.Free;
@@ -320,9 +308,11 @@ begin
   FViewLog2.Place(cxTabSheetLog2);
   FViewLog2.DSWrap := FWebGrabber.LogW2;
 
-  FAfterLogPostEnable := True;
   TNotifyEventWrap.Create(FWebGrabber.LogW.AfterPostM, AfterLogPost,
     FWebGrabber.LogW.EventList);
+
+  TNotifyEventWrap.Create(FWebGrabber.LogW2.AfterPostM, AfterLog2Post,
+    FWebGrabber.LogW2.EventList);
 
 {$IFDEF MYDEBUG}
   FViewCategory := TfrmGrid.Create(Self);
@@ -343,7 +333,6 @@ begin
   FViewFinal := TViewFinal.Create(Self);
   FViewFinal.Place(cxTabSheetFinal);
   FViewFinal.W := FWebGrabber.FinalW;
-  FAfterFinalPostEnable := True;
   TNotifyEventWrap.Create(FWebGrabber.FinalW.AfterPostM, AfterFinalPost,
     FWebGrabber.FinalW.EventList);
 
@@ -359,6 +348,24 @@ begin
 
   // Продолжить можем если найдено предыдущее состояние
   actContinueGrab.Enabled := FWebGrabber.StateExists;
+
+  FMyFinal := TMyView.Create(Self,
+    function: Boolean
+    begin
+      Result := cxPageControl1.ActivePage = cxTabSheetFinal;
+    end, FViewFinal);
+
+  FMyLog1 := TMyView.Create(Self,
+    function: Boolean
+    begin
+      Result := cxPageControl1.ActivePage = cxTabSheetLog;
+    end, FViewLog);
+
+  FMyLog2 := TMyView.Create(Self,
+    function: Boolean
+    begin
+      Result := cxPageControl1.ActivePage = cxTabSheetLog2;
+    end, FViewLog2);
 
   OnNewPage(cxPageControl1.ActivePage);
 end;
@@ -388,6 +395,48 @@ begin
 
   if NewPage = cxTabSheetFinal then
     FWebGrabber.FinalW.DataSource.Enabled := True;
+end;
+
+constructor TMyView.Create(AOwner: TComponent; ACheckMethod: TCheckMethod;
+AView: TfrmGrid);
+begin
+  inherited Create(AOwner);
+  FHRTimer := THRTimer.Create(False);
+  FCheckMethod := ACheckMethod;
+  FView := AView;
+  FEnable := True;
+  FLastApplyBestFitTime := 0;
+end;
+
+destructor TMyView.Destroy;
+begin
+  FreeAndNil(FHRTimer);
+  inherited;
+end;
+
+procedure TMyView.TryApplyBestFit;
+var
+  d: Double;
+  OK: Boolean;
+begin
+  if not FCheckMethod then
+    Exit;
+
+  if not FEnable then
+    Exit;
+
+  OK := (FView.MainView.ViewData.RowCount < 250) or
+    (Now - FLastApplyBestFitTime > (1 / 24 / 60));
+
+  if not OK then
+    Exit;
+
+  FLastApplyBestFitTime := Now;
+
+  FHRTimer.StartTimer;
+  FView.MainView.ApplyBestFit;
+  d := FHRTimer.ReadTimer;
+  FEnable := d < 500;
 end;
 
 end.

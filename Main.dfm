@@ -14,7 +14,6 @@ object MainForm: TMainForm
   Position = poDesktopCenter
   OnCloseQuery = FormCloseQuery
   OnCreate = FormCreate
-  OnDestroy = FormDestroy
   PixelsPerInch = 96
   TextHeight = 18
   object cxPageControl1: TcxPageControl
@@ -26,8 +25,8 @@ object MainForm: TMainForm
     TabOrder = 0
     Properties.ActivePage = cxTabSheetLog
     Properties.CustomButtons.Buttons = <>
+    OnChange = cxPageControl1Change
     OnPageChanging = cxPageControl1PageChanging
-    ExplicitLeft = -96
     ClientRectBottom = 637
     ClientRectLeft = 4
     ClientRectRight = 1004
@@ -39,26 +38,50 @@ object MainForm: TMainForm
     object cxTabSheetLog2: TcxTabSheet
       Caption = #1046#1091#1088#1085#1072#1083' '#1079#1072#1075#1088#1091#1079#1082#1080' '#1076#1086#1082#1091#1084#1077#1085#1090#1072#1094#1080#1080
       ImageIndex = 6
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
     end
     object cxTabSheetCategory: TcxTabSheet
       Caption = #1050#1072#1090#1077#1075#1086#1088#1080#1080' '#1080' '#1087#1086#1076#1082#1072#1090#1077#1075#1086#1088#1080#1080
       ImageIndex = 0
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
     end
     object cxTabSheetProductList: TcxTabSheet
       Caption = #1057#1087#1080#1089#1082#1080' '#1090#1086#1074#1072#1088#1086#1074
       ImageIndex = 1
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
     end
     object cxTabSheetProducts: TcxTabSheet
       Caption = #1058#1086#1074#1072#1088#1099
       ImageIndex = 3
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
     end
     object cxTabSheetFinal: TcxTabSheet
       Caption = #1056#1077#1079#1091#1083#1100#1090#1072#1090
       ImageIndex = 4
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
     end
     object cxTabSheetErrors: TcxTabSheet
       Caption = #1054#1096#1080#1073#1082#1080
       ImageIndex = 5
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
     end
   end
   object dxBarManager1: TdxBarManager
