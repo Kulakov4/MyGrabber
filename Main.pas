@@ -13,17 +13,16 @@ uses
   WebGrabber, NotifyEvents, FinalView, FireDAC.Stan.StorageJSON,
   FireDAC.Stan.StorageBin, Settings, SplashForm, HRTimer;
 
-{$DEFINE MYDEBUG}
+{$DEFINE NO_MYDEBUG}
 
 const
   WM_NEED_STOP = WM_USER + 1;
-  WM_BEST_FIT = WM_USER + 2;
 
 type
   // —сылка на метод
   TCheckMethod = reference to function: Boolean;
 
-  TMyView = class(TComponent)
+  TViewWrap = class(TComponent)
   private
     FCheckMethod: TCheckMethod;
     FEnable: Boolean;
@@ -69,26 +68,36 @@ type
   strict private
   private
     FClosing: Boolean;
-    FMyFinal: TMyView;
-    FMyLog1: TMyView;
-    FMyLog2: TMyView;
     FSettings: TWebGrabberSettings;
 {$IFDEF MYDEBUG}
     FViewCategory: TfrmGrid;
     FViewProducts: TfrmGrid;
     FViewProductList: TfrmGrid;
+
+    FCategoriesViewWrap: TViewWrap;
+    FProductListViewWrap: TViewWrap;
+    FProductsViewWrap: TViewWrap;
 {$ENDIF}
     FViewFinal: TViewFinal;
     FViewErrors: TfrmGrid;
     FViewLog: TfrmGrid;
     FViewLog2: TfrmGrid;
+
+    FFinalViewWrap: TViewWrap;
+    FLog1ViewWrap: TViewWrap;
+    FLog2ViewWrap: TViewWrap;
+
     FWebGrabber: TWebGrabber;
     procedure AfterFinalPost(Sender: TObject);
     procedure AfterErrorPost(Sender: TObject);
+{$IFDEF MYDEBUG}
+    procedure AfterCategoryPost(Sender: TObject);
+    procedure AfterProductListPost(Sender: TObject);
+    procedure AfterProductPost(Sender: TObject);
+{$ENDIF}
     procedure AfterLogPost(Sender: TObject);
     procedure AfterLog2Post(Sender: TObject);
     procedure AfterSaveState(Sender: TObject);
-    procedure ApplyBestFit;
     procedure BeforeSaveState(Sender: TObject);
     procedure DisableAllDataSource;
     procedure DoOnGrabComplete(Sender: TObject);
@@ -97,7 +106,6 @@ type
     procedure OnNewPage(NewPage: TcxTabSheet);
     { Private declarations }
   protected
-    procedure BestFitMessage(var Message: TMessage); message WM_BEST_FIT;
     procedure NeedStopMsg(var Message: TMessage); message WM_NEED_STOP;
   public
     { Public declarations }
@@ -144,7 +152,7 @@ end;
 
 procedure TMainForm.AfterFinalPost(Sender: TObject);
 begin
-  FMyFinal.TryApplyBestFit;
+  FFinalViewWrap.TryApplyBestFit;
 end;
 
 procedure TMainForm.AfterErrorPost(Sender: TObject);
@@ -152,57 +160,55 @@ begin
   FViewErrors.MainView.ApplyBestFit;
 end;
 
+{$IFDEF MYDEBUG}
+procedure TMainForm.AfterCategoryPost(Sender: TObject);
+begin
+  FCategoriesViewWrap.TryApplyBestFit;
+end;
+
+
+procedure TMainForm.AfterProductListPost(Sender: TObject);
+begin
+  FProductListViewWrap.TryApplyBestFit;
+end;
+
+procedure TMainForm.AfterProductPost(Sender: TObject);
+begin
+  FProductsViewWrap.TryApplyBestFit;
+end;
+{$ENDIF}
+
 procedure TMainForm.AfterLogPost(Sender: TObject);
 begin
-  FMyLog1.TryApplyBestFit;
+  FLog1ViewWrap.TryApplyBestFit;
 end;
 
 procedure TMainForm.AfterLog2Post(Sender: TObject);
 begin
-  FMyLog2.TryApplyBestFit;
+  FLog2ViewWrap.TryApplyBestFit;
 end;
+
 
 procedure TMainForm.AfterSaveState(Sender: TObject);
 begin
-  TfrmSplash.HideWait;
-end;
-
-procedure TMainForm.ApplyBestFit;
-begin
-  TfrmSplash.ShowWait('Подбираю оптимальную ширину столбцов');
-  FViewLog.MainView.ApplyBestFit;
-  FViewLog2.MainView.ApplyBestFit;
-  FViewFinal.MainView.ApplyBestFit;
-  FViewErrors.MainView.ApplyBestFit;
-{$IFDEF MYDEBUG}
-  FViewCategory.MainView.ApplyBestFit;
-  FViewProducts.MainView.ApplyBestFit;
-  FViewProductList.MainView.ApplyBestFit;
-{$ENDIF}
-  TfrmSplash.HideWait;
+//  TfrmSplash.HideWait;
 end;
 
 procedure TMainForm.BeforeSaveState(Sender: TObject);
 begin
-  TfrmSplash.ShowWait('Идёт сохранение промежуточных данных');
-end;
-
-procedure TMainForm.BestFitMessage(var Message: TMessage);
-begin
-  inherited;
-  ApplyBestFit;
+//  TfrmSplash.ShowWait('Идёт сохранение промежуточных данных');
 end;
 
 procedure TMainForm.cxPageControl1Change(Sender: TObject);
 begin
   if cxPageControl1.ActivePage = cxTabSheetLog then
-    FMyLog1.TryApplyBestFit;
+    FLog1ViewWrap.TryApplyBestFit;
 
   if cxPageControl1.ActivePage = cxTabSheetLog2 then
-    FMyLog2.TryApplyBestFit;
+    FLog2ViewWrap.TryApplyBestFit;
 
   if cxPageControl1.ActivePage = cxTabSheetFinal then
-    FMyFinal.TryApplyBestFit;
+    FFinalViewWrap.TryApplyBestFit;
 end;
 
 procedure TMainForm.cxPageControl1PageChanging(Sender: TObject;
@@ -224,8 +230,6 @@ end;
 
 procedure TMainForm.DoOnGrabComplete(Sender: TObject);
 begin
-  ApplyBestFit;
-
   ShowMessage('Сбор информации закончен');
 end;
 
@@ -252,7 +256,6 @@ begin
       end;
     Stoped:
       begin
-        PostMessage(Handle, WM_BEST_FIT, 0, 0);
         actStartGrab.Enabled := True;
         actContinueGrab.Enabled := True;
 
@@ -319,16 +322,40 @@ begin
   FViewCategory.Name := 'ViewCategory1';
   FViewCategory.Place(cxTabSheetCategory);
   FViewCategory.DSWrap := FWebGrabber.CategoryW;
+  TNotifyEventWrap.Create(FWebGrabber.CategoryW.AfterPostM, AfterCategoryPost,
+    FWebGrabber.CategoryW.EventList);
 
   FViewProductList := TfrmGrid.Create(Self);
   FViewProductList.Name := 'ViewProductList1';
   FViewProductList.Place(cxTabSheetProductList);
   FViewProductList.DSWrap := FWebGrabber.ProductListW;
+  TNotifyEventWrap.Create(FWebGrabber.ProductListW.AfterPostM,
+    AfterProductListPost, FWebGrabber.ProductListW.EventList);
 
   FViewProducts := TfrmGrid.Create(Self);
   FViewProducts.Name := 'ViewProducts';
   FViewProducts.Place(cxTabSheetProducts);
   FViewProducts.DSWrap := FWebGrabber.ProductW;
+  TNotifyEventWrap.Create(FWebGrabber.ProductW.AfterPostM, AfterProductPost,
+    FWebGrabber.ProductW.EventList);
+
+  FCategoriesViewWrap := TViewWrap.Create(Self,
+    function: Boolean
+    begin
+      Result := cxPageControl1.ActivePage = cxTabSheetCategory;
+    end, FViewCategory);
+
+  FProductListViewWrap := TViewWrap.Create(Self,
+    function: Boolean
+    begin
+      Result := cxPageControl1.ActivePage = cxTabSheetProductList;
+    end, FViewProductList);
+
+  FProductsViewWrap := TViewWrap.Create(Self,
+    function: Boolean
+    begin
+      Result := cxPageControl1.ActivePage = cxTabSheetProducts;
+    end, FViewProducts);
 {$ENDIF}
   FViewFinal := TViewFinal.Create(Self);
   FViewFinal.Place(cxTabSheetFinal);
@@ -349,19 +376,19 @@ begin
   // Продолжить можем если найдено предыдущее состояние
   actContinueGrab.Enabled := FWebGrabber.StateExists;
 
-  FMyFinal := TMyView.Create(Self,
+  FFinalViewWrap := TViewWrap.Create(Self,
     function: Boolean
     begin
       Result := cxPageControl1.ActivePage = cxTabSheetFinal;
     end, FViewFinal);
 
-  FMyLog1 := TMyView.Create(Self,
+  FLog1ViewWrap := TViewWrap.Create(Self,
     function: Boolean
     begin
       Result := cxPageControl1.ActivePage = cxTabSheetLog;
     end, FViewLog);
 
-  FMyLog2 := TMyView.Create(Self,
+  FLog2ViewWrap := TViewWrap.Create(Self,
     function: Boolean
     begin
       Result := cxPageControl1.ActivePage = cxTabSheetLog2;
@@ -397,7 +424,7 @@ begin
     FWebGrabber.FinalW.DataSource.Enabled := True;
 end;
 
-constructor TMyView.Create(AOwner: TComponent; ACheckMethod: TCheckMethod;
+constructor TViewWrap.Create(AOwner: TComponent; ACheckMethod: TCheckMethod;
 AView: TfrmGrid);
 begin
   inherited Create(AOwner);
@@ -408,13 +435,13 @@ begin
   FLastApplyBestFitTime := 0;
 end;
 
-destructor TMyView.Destroy;
+destructor TViewWrap.Destroy;
 begin
   FreeAndNil(FHRTimer);
   inherited;
 end;
 
-procedure TMyView.TryApplyBestFit;
+procedure TViewWrap.TryApplyBestFit;
 var
   d: Double;
   OK: Boolean;

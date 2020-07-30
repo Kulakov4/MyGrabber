@@ -7,7 +7,11 @@ uses
   ProductParser, ProductsDataSet, CategoryDataSet, System.Generics.Collections,
   System.SysUtils, LogInterface, System.StrUtils, CategoryParser,
   ParserManager, PageParser, ProductListParser, FinalDataSet, ErrorDataSet,
-  WebGrabberState, LogDataSet, Settings;
+  WebGrabberState, LogDataSet, Settings, System.SyncObjs, Winapi.Windows,
+  Winapi.Messages;
+
+const
+  WM_STOP = WM_USER + 5;
 
 type
   TWebGrabber = class(TComponent)
@@ -26,7 +30,9 @@ type
     FOnGrabComplete: TNotifyEventsEx;
     FBeforeSaveState: TNotifyEventsEx;
     FAfterSaveState: TNotifyEventsEx;
+    FHandle: HWND;
     FLastSaveTime: TDateTime;
+    FLock: TCriticalSection;
     FLogDS2: TLogDS;
     FPageParser: TPageParser;
     FParserManager: TParserManager;
@@ -53,6 +59,7 @@ type
     function GetDownloadManagerEx: TDownloadManagerEx;
     function GetErrorW: TErrorW;
     function GetFinalW: TFinalW;
+    function GetHandle: HWND;
     function GetLogW: TLogW;
     function GetLogW2: TLogW;
     function GetPageParser: TPageParser;
@@ -75,8 +82,10 @@ type
     procedure TrySaveState(AThreadStatus: TThreadStatus; AID: Integer);
     procedure TryStartNextDownload;
   protected
+    procedure WndProc(var Msg: TMessage); virtual;
     property CategoryParser: TCategoryParser read GetCategoryParser;
     property DownloadManagerEx: TDownloadManagerEx read GetDownloadManagerEx;
+    property Handle: HWND read GetHandle;
     property PageParser: TPageParser read GetPageParser;
     property ParserManager: TParserManager read GetParserManager;
     property ProductListParser: TProductListParser read GetProductListParser;
@@ -111,6 +120,8 @@ uses
 constructor TWebGrabber.Create(AOwner: TComponent);
 begin
   inherited Create(AOwner);
+
+  FLock := TCriticalSection.Create;
 
   FSaveStateInterval := (1 / 24 / 60);
 
@@ -151,6 +162,7 @@ end;
 
 destructor TWebGrabber.Destroy;
 begin
+  FreeAndNil(FLock);
   inherited;
 end;
 
@@ -201,24 +213,28 @@ end;
 
 function TWebGrabber.IsStoping(AID: Integer): Boolean;
 begin
-  Result := Status = Stoping;
-  if not Result then
-  begin
-    // Если необходимо - сохраняем своё состояние по времени
-    if (AID > 0) or (FWebGrabberState.ThreadStatus = tsDownloading) then
-      TrySaveState(FWebGrabberState.ThreadStatus, AID);
-    Exit;
-  end;
+  FLock.Acquire;
+  try
+    Result := Status = Stoping;
+    if not Result then
+    begin
+      // Если необходимо - сохраняем своё состояние по времени
+      if (AID > 0) or (FWebGrabberState.ThreadStatus = tsDownloading) then
+        TrySaveState(FWebGrabberState.ThreadStatus, AID);
+      Exit;
+    end;
 
-  // Сохраняем информацию о месте, на котором мы остановились
-  SaveState(FWebGrabberState.ThreadStatus, AID);
-
-  Dec(FWaitObjectCount);
-  if FWaitObjectCount = 0 then
-  begin
-    Status := Stoped;
-    // После полной остановки - сохраняем состояние ещё раз
+    // Сохраняем информацию о месте, на котором мы остановились
     SaveState(FWebGrabberState.ThreadStatus, AID);
+
+    Dec(FWaitObjectCount);
+    if FWaitObjectCount = 0 then
+    begin
+      // Посылаем сообщение о том, что надо изменить статус
+      PostMessage(Handle, WM_STOP, 0, 0);
+    end;
+  finally
+    FLock.Release;
   end;
 end;
 
@@ -526,6 +542,14 @@ begin
   Result := FFinalDataSet.W;
 end;
 
+function TWebGrabber.GetHandle: HWND;
+begin
+  if FHandle = 0 then
+    FHandle := System.Classes.AllocateHWnd(WndProc);
+
+  Result := FHandle;
+end;
+
 function TWebGrabber.GetLogW: TLogW;
 begin
   Result := FLogDS.W;
@@ -713,30 +737,35 @@ end;
 
 procedure TWebGrabber.SetStatus(const Value: TStatus);
 begin
-  FStatus := Value;
-  if FStatus = Stoped then
-  begin
+  FLock.Acquire;
+  try
+    FStatus := Value;
+    if FStatus = Stoped then
+    begin
+    end;
+
+    if FStatus = Runing then
+    begin
+    end;
+
+    if FStatus = Stoping then
+    begin
+      FWaitObjectCount := 0;
+
+      // Если сейчас идёт обработка категорий, списка товаров или характеристик товара
+      if FWebGrabberState.ThreadStatus in [tsCategory, tsProductList, tsProducts]
+      then
+        Inc(FWaitObjectCount);
+
+      // Если сейчас идёт загрузка документации
+      if DownloadManagerEx.Downloading then
+        Inc(FWaitObjectCount);
+    end;
+
+    FOnStatusChange.CallEventHandlers(Self);
+  finally
+    FLock.Release;
   end;
-
-  if FStatus = Runing then
-  begin
-  end;
-
-  if FStatus = Stoping then
-  begin
-    FWaitObjectCount := 0;
-
-    // Если сейчас идёт обработка категорий, списка товаров или характеристик товара
-    if FWebGrabberState.ThreadStatus in [tsCategory, tsProductList, tsProducts]
-    then
-      Inc(FWaitObjectCount);
-
-    // Если сейчас идёт загрузка документации
-    if DownloadManagerEx.Downloading then
-      Inc(FWaitObjectCount);
-  end;
-
-  FOnStatusChange.CallEventHandlers(Self);
 end;
 
 procedure TWebGrabber.StartCategoryParsing(AID: Integer);
@@ -1059,6 +1088,17 @@ begin
       FOnGrabComplete.CallEventHandlers(Self);
     end;
   end;
+end;
+
+procedure TWebGrabber.WndProc(var Msg: TMessage);
+begin
+  with Msg do
+    case Msg of
+      WM_STOP:
+        Status := Stoped;
+    else
+      DefWindowProc(FHandle, Msg, wParam, lParam);
+    end;
 end;
 
 end.

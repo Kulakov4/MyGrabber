@@ -245,8 +245,6 @@ end;
 procedure TDownloadManagerEx.Main(const AURL, AFileName: String;
 ATaskIndex, ATaskID: Integer);
 var
-  ADownloadError: TDownloadError;
-  // AErrorIndex: Integer;
   ALoader: TWebLoader2;
   AMemoryStream: TMemoryStream;
 begin
@@ -262,8 +260,6 @@ begin
       finally
         FreeAndNil(AMemoryStream);
       end;
-
-      Sleep(30000);
 
     finally
       FreeAndNil(ALoader);
