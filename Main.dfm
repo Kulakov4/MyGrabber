@@ -83,6 +83,14 @@ object MainForm: TMainForm
       ExplicitWidth = 0
       ExplicitHeight = 0
     end
+    object cxTabSheetReport: TcxTabSheet
+      Caption = #1054#1090#1095#1105#1090
+      ImageIndex = 7
+      ExplicitLeft = 0
+      ExplicitTop = 0
+      ExplicitWidth = 0
+      ExplicitHeight = 0
+    end
   end
   object dxBarManager1: TdxBarManager
     Font.Charset = DEFAULT_CHARSET

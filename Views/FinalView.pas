@@ -13,7 +13,8 @@ uses
   Vcl.ActnList, cxClasses, dxBar, Vcl.ComCtrls, cxGridLevel, cxGridCustomView,
   cxGridCustomTableView, cxGridTableView, cxGridBandedTableView,
   cxGridDBBandedTableView, cxGrid, FinalDataSet, System.ImageList, Vcl.ImgList,
-  cxImageList, cxDataControllerConditionalFormattingRulesManagerDialog;
+  cxImageList, cxDataControllerConditionalFormattingRulesManagerDialog,
+  NotifyEvents;
 
 type
   TViewFinal = class(TfrmGrid)
@@ -40,7 +41,7 @@ type
 implementation
 
 uses
-  DialogUnit, NotifyEvents, System.IOUtils, MyDir;
+  DialogUnit, System.IOUtils, MyDir, ExcelDataModule;
 
 {$R *.dfm}
 
@@ -56,6 +57,9 @@ begin
   MainView.ApplyBestFit;
 
   ExportViewToExcel(MainView, AFileName);
+
+  // Замораживаем заголовок
+  TExcelDM.FreezePanes(AFileName, 1, 0);
 end;
 
 procedure TViewFinal.DoAfterPost(Sender: TObject);

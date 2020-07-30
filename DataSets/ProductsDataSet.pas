@@ -23,6 +23,7 @@ type
     procedure Do_AfterInsert(Sender: TObject);
   public
     constructor Create(AOwner: TComponent); override;
+    procedure FilterByHaveNotAllDocuments;
     procedure FilterByNotDone;
     procedure SetStatus(AStatus: Integer);
     property Description: TFieldWrap read FDescription;
@@ -59,13 +60,18 @@ begin
   inherited;
   FItemNumber := TFieldWrap.Create(Self, 'ItemNumber', 'Артикул');
   FDescription := TFieldWrap.Create(Self, 'Description', 'Описание');
-  FTemperatureRange := TFieldWrap.Create(Self, 'TemperatureRange', 'Температурный диапазон');
+  FTemperatureRange := TFieldWrap.Create(Self, 'TemperatureRange',
+    'Температурный диапазон');
   FImageURL := TFieldWrap.Create(Self, 'ImageURL', 'URL Изображения');
-  FImageFileName := TFieldWrap.Create(Self, 'ImageFileName', 'Файл изображения');
-  FSpecificationURL := TFieldWrap.Create(Self, 'SpecificationURL', 'URL спецификации');
-  FSpecificationFileName := TFieldWrap.Create(Self, 'SpecificationFileName', 'Файл спецификации');
+  FImageFileName := TFieldWrap.Create(Self, 'ImageFileName',
+    'Файл изображения');
+  FSpecificationURL := TFieldWrap.Create(Self, 'SpecificationURL',
+    'URL спецификации');
+  FSpecificationFileName := TFieldWrap.Create(Self, 'SpecificationFileName',
+    'Файл спецификации');
   FDrawingURL := TFieldWrap.Create(Self, 'DrawingURL', 'URL чертёж');
-  FDrawingFileName := TFieldWrap.Create(Self, 'DrawingFileName', 'Файл чертёжа');
+  FDrawingFileName := TFieldWrap.Create(Self, 'DrawingFileName',
+    'Файл чертёжа');
   FParentID := TFieldWrap.Create(Self, 'ParentID', 'Код родителя');
   FStatus := TFieldWrap.Create(Self, 'Status', 'Состояние');
   TNotifyEventWrap.Create(AfterInsert, Do_AfterInsert);
@@ -76,6 +82,14 @@ end;
 procedure TProductW.Do_AfterInsert(Sender: TObject);
 begin
   Status.F.AsInteger := 0;
+end;
+
+procedure TProductW.FilterByHaveNotAllDocuments;
+begin
+  DataSet.Filter := Format('(%s is null) or (%s is null) or (%s is null)',
+    [DrawingFileName.FieldName, ImageFileName.FieldName,
+    SpecificationFileName.FieldName]);
+  DataSet.Filtered := True;
 end;
 
 procedure TProductW.FilterByNotDone;

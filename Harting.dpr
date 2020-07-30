@@ -44,7 +44,10 @@ uses
   Settings in 'Settings.pas',
   SettingsForm in 'Views\SettingsForm.pas' {frmSettings},
   SplashForm in 'Views\Splash\SplashForm.pas' {frmSplash},
-  HRTimer in 'Helpers\HRTimer.pas';
+  HRTimer in 'Helpers\HRTimer.pas',
+  ExcelDataModule in 'Excel\ExcelDataModule.pas' {ExcelDM: TDataModule},
+  ReportDataSet in 'DataSets\ReportDataSet.pas',
+  ReportView in 'Views\ReportView.pas' {ViewReport: TFrame};
 
 {$R *.res}
 

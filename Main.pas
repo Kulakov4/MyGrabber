@@ -11,7 +11,7 @@ uses
   GridFrame, dxBarBuiltInMenu, System.Actions, Vcl.ActnList, cxClasses, dxBar,
   cxPC, PageParser, cxLabel, System.Generics.Collections, Status, LogInterface,
   WebGrabber, NotifyEvents, FinalView, FireDAC.Stan.StorageJSON,
-  FireDAC.Stan.StorageBin, Settings, SplashForm, HRTimer;
+  FireDAC.Stan.StorageBin, Settings, SplashForm, HRTimer, ReportView;
 
 {$DEFINE NO_MYDEBUG}
 
@@ -57,6 +57,7 @@ type
     FDStanStorageJSONLink1: TFDStanStorageJSONLink;
     FDStanStorageBinLink1: TFDStanStorageBinLink;
     cxTabSheetLog2: TcxTabSheet;
+    cxTabSheetReport: TcxTabSheet;
     procedure actContinueGrabExecute(Sender: TObject);
     procedure actStartGrabExecute(Sender: TObject);
     procedure actStopGrabExecute(Sender: TObject);
@@ -86,6 +87,7 @@ type
     FFinalViewWrap: TViewWrap;
     FLog1ViewWrap: TViewWrap;
     FLog2ViewWrap: TViewWrap;
+    FViewReport: TViewReport;
 
     FWebGrabber: TWebGrabber;
     procedure AfterFinalPost(Sender: TObject);
@@ -104,6 +106,7 @@ type
     procedure DoOnManyErrors(Sender: TObject);
     procedure DoOnStatusChange(Sender: TObject);
     procedure OnNewPage(NewPage: TcxTabSheet);
+    procedure RefreshReport(Sender: TObject);
     { Private declarations }
   protected
     procedure NeedStopMsg(var Message: TMessage); message WM_NEED_STOP;
@@ -363,6 +366,12 @@ begin
   TNotifyEventWrap.Create(FWebGrabber.FinalW.AfterPostM, AfterFinalPost,
     FWebGrabber.FinalW.EventList);
 
+
+  FViewReport := TViewReport.Create(Self);
+  FViewReport.Place(cxTabSheetReport);
+  FViewReport.W := FWebGrabber.ReportW;
+  TNotifyEventWrap.Create(FViewReport.OnRefreshReport, RefreshReport);
+
   FViewErrors := TfrmGrid.Create(Self);
   FViewErrors.Name := 'ViewErrors';
   FViewErrors.Place(cxTabSheetErrors);
@@ -422,6 +431,11 @@ begin
 
   if NewPage = cxTabSheetFinal then
     FWebGrabber.FinalW.DataSource.Enabled := True;
+end;
+
+procedure TMainForm.RefreshReport(Sender: TObject);
+begin
+  FWebGrabber.PrepareReport;
 end;
 
 constructor TViewWrap.Create(AOwner: TComponent; ACheckMethod: TCheckMethod;

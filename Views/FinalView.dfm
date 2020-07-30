@@ -10,18 +10,17 @@ inherited ViewFinal: TViewFinal
   inherited dxBarManager: TdxBarManager
     Font.Charset = RUSSIAN_CHARSET
     Font.Name = 'Tahoma'
-    ShowHint = True
     UseSystemFont = False
     PixelsPerInch = 96
     inherited dxbrMain: TdxBar
       ItemLinks = <
         item
           Visible = True
-          ItemName = 'dxBarButton2'
+          ItemName = 'dxBarButton1'
         end
         item
           Visible = True
-          ItemName = 'dxBarButton1'
+          ItemName = 'dxBarButton2'
         end>
     end
     object dxBarButton1: TdxBarButton [1]

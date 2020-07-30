@@ -1,0 +1,6 @@
+object TWebGrabberState
+  DownloadDocs = True
+  ID = 133
+  MaxID = 239
+  ThreadStatus = tsProductList
+end

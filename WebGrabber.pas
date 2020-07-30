@@ -8,7 +8,7 @@ uses
   System.SysUtils, LogInterface, System.StrUtils, CategoryParser,
   ParserManager, PageParser, ProductListParser, FinalDataSet, ErrorDataSet,
   WebGrabberState, LogDataSet, Settings, System.SyncObjs, Winapi.Windows,
-  Winapi.Messages;
+  Winapi.Messages, ReportDataSet;
 
 const
   WM_STOP = WM_USER + 5;
@@ -42,6 +42,7 @@ type
     FProductParser: TProductParser;
     FProductsDS: TProductsDS;
     FProductW: TProductW;
+    FReportDS: TReportDS;
     FSaveStateInterval: Double;
     FStatus: TStatus;
     FWaitObjectCount: Integer;
@@ -68,6 +69,7 @@ type
     function GetProductListW: TProductListW;
     function GetProductParser: TProductParser;
     function GetProductW: TProductW;
+    function GetReportW: TReportW;
     procedure LoadState;
     procedure OnDownloadComplete(Sender: TObject);
     procedure OnDownloadError(ADownloadError: TDownloadError);
@@ -94,6 +96,7 @@ type
     constructor Create(AOwner: TComponent); override;
     destructor Destroy; override;
     function ContinueGrab: Boolean;
+    procedure PrepareReport;
     procedure StartGrab(ASettings: TWebGrabberSettings);
     function StateExists: Boolean;
     procedure StopGrab;
@@ -109,13 +112,14 @@ type
     property LogW2: TLogW read GetLogW2;
     property ProductListW: TProductListW read GetProductListW;
     property ProductW: TProductW read GetProductW;
+    property ReportW: TReportW read GetReportW;
     property Status: TStatus read FStatus write SetStatus;
   end;
 
 implementation
 
 uses
-  System.IOUtils, MyDir, NounUnit;
+  System.IOUtils, MyDir, NounUnit, FireDAC.Comp.Client;
 
 constructor TWebGrabber.Create(AOwner: TComponent);
 begin
@@ -144,6 +148,8 @@ begin
   FProductW.FilterByNotDone;
 
   FFinalDataSet := TFinalDataSet.Create(Self);
+
+  FReportDS := TReportDS.Create(Self);
 
   FOnStatusChange := TNotifyEventsEx.Create(Self);
   FOnManyErrors := TNotifyEventsEx.Create(Self);
@@ -606,6 +612,11 @@ begin
   Result := FProductsDS.W;
 end;
 
+function TWebGrabber.GetReportW: TReportW;
+begin
+  Result := FReportDS.W;
+end;
+
 procedure TWebGrabber.OnDownloadComplete(Sender: TObject);
 var
   ADM: TDownloadManagerEx;
@@ -679,13 +690,13 @@ begin
     FProductW.TryEdit;
 
     if FProductW.ImageFileName.F.AsString = AFileName then
-      FProductW.ImageFileName.F.AsString := '';
+      FProductW.ImageFileName.F.Clear;
 
     if FProductW.SpecificationFileName.F.AsString = AFileName then
-      FProductW.SpecificationFileName.F.AsString := '';
+      FProductW.SpecificationFileName.F.Clear;
 
     if FProductW.DrawingFileName.F.AsString = AFileName then
-      FProductW.DrawingFileName.F.AsString := '';
+      FProductW.DrawingFileName.F.Clear;
 
     FProductW.TryPost;
   end;
@@ -722,6 +733,46 @@ begin
   FProductsDS.Load;
   FErrorDS.Load;
   FFinalDataSet.Load;
+end;
+
+procedure TWebGrabber.PrepareReport;
+var
+  AProductW: TProductW;
+begin
+  FReportDS.W.DataSource.Enabled := False;
+  AProductW := TProductW.Create(FProductsDS.W.AddClone(''));
+  try
+    AProductW.FilterByHaveNotAllDocuments;
+
+    FReportDS.EmptyDataSet;
+    AProductW.DataSet.First;
+    while not AProductW.DataSet.Eof do
+    begin
+      // »щем корневую категорию
+      FProductListDS.W.LocateByPK(AProductW.ParentID.F.AsInteger, True);
+      FCategoryDS.W.LocateByPK(FProductListDS.W.ParentID.F.AsInteger, True);
+//      L.Add(FCategoryDS.W.Caption.F.AsString);
+      while FCategoryDS.W.ParentID.F.AsInteger > 0 do
+      begin
+        FCategoryDS.W.LocateByPK(FCategoryDS.W.ParentID.F.AsInteger, True);
+//        L.Insert(0, FCategoryDS.W.Caption.F.AsString);
+      end;
+
+      FReportDS.W.TryAppend;
+      FReportDS.W.Category.F.AsString := FCategoryDS.W.Caption.F.AsString;
+      FReportDS.W.ItemNumber.F.AsString := AProductW.ItemNumber.F.AsString.Replace(' ', '');
+      FReportDS.W.Drawing.F.AsString := AProductW.DrawingFileName.F.AsString;
+      FReportDS.W.Image.F.AsString := AProductW.ImageFileName.F.AsString;
+      FReportDS.W.Specification.F.AsString := AProductW.SpecificationFileName.F.AsString;
+      FReportDS.W.TryPost;
+
+      AProductW.DataSet.Next;
+    end;
+    FReportDS.First;
+  finally
+    FProductsDS.W.DropClone(AProductW.DataSet as TFDMemTable);
+    FReportDS.W.DataSource.Enabled := True;
+  end;
 end;
 
 procedure TWebGrabber.SaveDBState;
